@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Runtime outputs (never commit CRO data)
+outputs/
+
+# Environment / secrets
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# CRO workbooks (sensitive data — never commit)
+data/
+*.xlsx
+# EXCEPT the upload template and config files
+!config/assay_config/*/upload_template.xlsx
+!config/upload_templates.xlsx

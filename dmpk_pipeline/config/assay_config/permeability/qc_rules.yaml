@@ -1,0 +1,39 @@
+assay_type: permeability
+rules:
+  - {id: MAT_001, section: Materials, description: "Compound name consistent across tabs", check: compound_name_consistency, tabs: [signature,materials,bioanalytical,summary], severity: fail}
+  - {id: MAT_002, section: Materials, description: "MW match — manual check", check: manual, severity: manual, prompt: "Confirm MW matches internal registry"}
+  - {id: MAT_003, section: Materials, description: "MDCKII-MDR1 passage number 10–20", check: manual, severity: manual, prompt: "Confirm MDCKII-MDR1 passage number is between 10–20 (check Materials tab)"}
+  - {id: SD_001, section: Study Design, description: "Cultivated 3–8 days at 37°C, 5% CO2", check: text_contains, tab: study_design_text, contains: "37", severity: warn}
+  - {id: SD_002, section: Study Design, description: "Monolayer integrity via TEER checked", check: manual, severity: manual, prompt: "Confirm monolayer integrity was assessed by TEER measurement"}
+  - {id: SD_003, section: Study Design, description: "1 µM compound concentration", check: text_contains, tab: study_design_text, contains: "1 uM", severity: warn}
+  - {id: SD_004, section: Study Design, description: "1% BSA added to transport buffer", check: text_contains, tab: study_design_text, contains: "BSA", severity: warn}
+  - {id: SD_005, section: Study Design, description: "A→B: 235 µL transport buffer", check: manual, severity: manual, prompt: "Confirm A-to-B acceptor volume is 235 µL"}
+  - {id: SD_006, section: Study Design, description: "B→A: 75 µL transport buffer", check: manual, severity: manual, prompt: "Confirm B-to-A acceptor volume is 75 µL"}
+  - {id: SD_007, section: Study Design, description: "Incubation time: 2 hours", check: text_contains, tab: study_design_text, contains: "2 hour", severity: warn}
+  - {id: SD_008, section: Study Design, description: "≥ 4 volumes crash solvent", check: text_contains, tab: study_design_text, contains: "4 volume", severity: warn}
+  - {id: SD_009, section: Study Design, description: "Lucifer Yellow leakage measured", check: manual, severity: manual, prompt: "Confirm Lucifer Yellow leakage was measured to assess monolayer integrity"}
+  - {id: BIO_001, section: Bioanalytical, description: "Compound name in Bioanalytical matches Summary", check: compound_name_consistency, tabs: [bioanalytical,summary], severity: fail}
+  - {id: BIO_002, section: Bioanalytical, description: "LC gradient present", check: manual, severity: manual, prompt: "Visually confirm LC gradient table is present and correct"}
+  - {id: BIO_003, section: Bioanalytical, description: "Q1 m/z matches MW+1 ±0.5 Da", check: q1_mz_match, tab: bioanalytical, mw_source_tab: materials, mz_tolerance_da: 0.5, severity: fail}
+  - {id: BIO_004, section: Bioanalytical, description: "DP ≥ 30 V", check: numeric_threshold, tab: bioanalytical, field: dp_v, operator: ">=", threshold: 30, severity: fail}
+  - {id: BIO_005, section: Bioanalytical, description: "CE ≤ 100 V", check: numeric_threshold, tab: bioanalytical, field: ce_v, operator: "<=", threshold: 100, severity: fail}
+  - {id: RAW_001, section: Raw Data, description: "IS peak area %CV ≤ 25%", check: is_peak_area_cv, tab: data_analysis, cv_threshold: 25.0, severity: fail}
+  - {id: RAW_002, section: Raw Data, description: "IS assignment correct", check: manual, severity: manual, prompt: "Confirm IS assignment is correct for each compound group"}
+  - {id: RAW_003, section: Raw Data, description: "Blank peak area low", check: blank_peak_area, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, max_blank_fraction: 0.01, severity: warn}
+  - {id: RAW_004, section: Raw Data, description: "% Carryover A→B ≤ 20%", check: manual, severity: manual, prompt: "Confirm A-to-B carryover ≤ 20%"}
+  - {id: RAW_005, section: Raw Data, description: "% Carryover B→A ≤ 20%", check: manual, severity: manual, prompt: "Confirm B-to-A carryover ≤ 20%"}
+  - {id: RAW_006, section: Raw Data, description: "Signal/noise ≥ 3:1", check: signal_to_noise, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, min_snr: 3.0, severity: fail}
+  - {id: RAW_007, section: Raw Data, description: "Papp acceptor volume A→B = 235 µL", check: manual, severity: manual, prompt: "Verify Papp formula uses 235 µL for A-to-B acceptor volume"}
+  - {id: RAW_008, section: Raw Data, description: "Papp acceptor volume B→A = 75 µL", check: manual, severity: manual, prompt: "Verify Papp formula uses 75 µL for B-to-A acceptor volume"}
+  - {id: RAW_009, section: Raw Data, description: "Papp membrane area = 0.143 cm²", check: manual, severity: manual, prompt: "Verify Papp formula uses 0.143 cm² for cell membrane area"}
+  - {id: RAW_010, section: Raw Data, description: "Papp transport time = 7200 sec", check: manual, severity: manual, prompt: "Verify Papp formula uses 7200 sec (2h) transport time"}
+  - {id: RAW_011, section: Raw Data, description: "% Recovery formulas correct", check: manual, severity: manual, prompt: "Verify % Recovery formulas are correct in Data Analysis tab"}
+  - {id: RAW_012, section: Raw Data, description: "Efflux Ratio = Papp B→A / Papp A→B", check: manual, severity: manual, prompt: "Verify ER = Papp(B-A) / Papp(A-B) formula is correct"}
+  - {id: SUM_001, section: Summary, description: "Compound name in Summary matches all tabs", check: compound_name_consistency, tabs: [summary,materials,bioanalytical], severity: fail}
+  - {id: SUM_002, section: Summary, description: "TEER A→B > 42 Ω", check: manual, severity: manual, prompt: "Confirm TEER A-to-B > 42 ohms in Summary tab"}
+  - {id: SUM_003, section: Summary, description: "TEER B→A > 42 Ω", check: manual, severity: manual, prompt: "Confirm TEER B-to-A > 42 ohms in Summary tab"}
+  - {id: SUM_004, section: Summary, description: "Lucifer Yellow leakage A→B < 1.5%", check: manual, severity: manual, prompt: "Confirm LY leakage A-to-B < 1.5% in Summary"}
+  - {id: SUM_005, section: Summary, description: "Lucifer Yellow leakage B→A < 1.5%", check: manual, severity: manual, prompt: "Confirm LY leakage B-to-A < 1.5% in Summary"}
+  - {id: SUM_006, section: Summary, description: "Papp A→B matches raw data", check: manual, severity: manual, prompt: "Verify Papp A-to-B in Summary matches Data Analysis calculations"}
+  - {id: SUM_007, section: Summary, description: "Papp B→A matches raw data", check: manual, severity: manual, prompt: "Verify Papp B-to-A in Summary matches Data Analysis calculations"}
+control_compounds: []

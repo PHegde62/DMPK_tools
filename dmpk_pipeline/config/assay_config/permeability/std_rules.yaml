@@ -1,0 +1,33 @@
+assay_type: permeability
+
+transformations:
+  - {field: compound_id, operation: strip_whitespace, output_field: compound_id}
+  - {field: batch_id,    operation: strip_whitespace, output_field: batch_id}
+  - {field: cro_name,    operation: extract_cro_name, output_field: cro_name}
+  - {field: papp_ab,     operation: round, decimal_places: 2, output_field: papp_ab}
+  - {field: papp_ba,     operation: round, decimal_places: 2, output_field: papp_ba}
+  - {field: efflux_ratio,operation: round, decimal_places: 2, output_field: efflux_ratio}
+  - {field: recovery_ab, operation: round, decimal_places: 1, output_field: recovery_ab}
+  - {field: recovery_ba, operation: round, decimal_places: 1, output_field: recovery_ba}
+
+upload_column_map:
+  compound_id:    "Compound_ID"
+  batch_id:       "batch_id"
+  papp_ab:        "Papp (A-B) (10-6, cm/s)"
+  papp_ba:        "Papp (B-A) (10-6, cm/s)"
+  efflux_ratio:   "Efflux Ratio"
+  recovery_ab:    "Recovery (%) A-B"
+  recovery_ba:    "Recovery (%) B-A"
+  condition:      "Condition"
+  cro_name:       "CRO"
+
+upload_columns_ordered:
+  - "Compound_ID"
+  - "batch_id"
+  - "Papp (A-B) (10-6, cm/s)"
+  - "Papp (B-A) (10-6, cm/s)"
+  - "Efflux Ratio"
+  - "Recovery (%) A-B"
+  - "Recovery (%) B-A"
+  - "Condition"
+  - "CRO"

@@ -1,0 +1,36 @@
+assay_type: hep_binding
+rules:
+  - {id: MAT_001, section: Materials, description: "Compound name consistent across tabs", check: compound_name_consistency, tabs: [signature,materials,bioanalytical,summary], severity: fail}
+  - {id: MAT_002, section: Materials, description: "MW match — manual check", check: manual, severity: manual, prompt: "Confirm MW matches internal registry"}
+  - {id: MAT_003, section: Materials, description: "Mixed-gender plasma pool confirmed", check: manual, severity: manual, prompt: "Confirm mixed-gender plasma pool used (check Materials tab)"}
+  - {id: MAT_004, section: Materials, description: "Buffer pH 7.35–7.45 confirmed", check: text_contains, tab: study_design_text, contains: "7.4", severity: warn}
+  - {id: SD_001, section: Study Design, description: "1 µM concentration used", check: text_contains, tab: study_design_text, contains: "1 uM", severity: warn}
+  - {id: SD_002, section: Study Design, description: "Dialysis membranes soaked 60 min", check: text_contains, tab: study_design_text, contains: "60 min", severity: warn}
+  - {id: SD_003, section: Study Design, description: "T=0 control prepared immediately", check: manual, severity: manual, prompt: "Confirm T=0 control was prepared immediately after plasma addition"}
+  - {id: SD_004, section: Study Design, description: "T=6hr control incubated 6h at 37°C", check: text_contains, tab: study_design_text, contains: "37", severity: warn}
+  - {id: SD_005, section: Study Design, description: "Matrix-matched: 50 µL plasma / 50 µL PBS", check: manual, severity: manual, prompt: "Confirm 50 uL plasma + 50 uL PBS matrix match used"}
+  - {id: SD_006, section: Study Design, description: "≥ 4 volumes crash solvent", check: text_contains, tab: study_design_text, contains: "4 volume", severity: warn}
+  - {id: BIO_001, section: Bioanalytical, description: "Compound name in Bioanalytical matches Summary", check: compound_name_consistency, tabs: [bioanalytical,summary], severity: fail}
+  - {id: BIO_002, section: Bioanalytical, description: "LC gradient present", check: manual, severity: manual, prompt: "Visually confirm LC gradient table present and correct"}
+  - {id: BIO_003, section: Bioanalytical, description: "Q1 m/z matches MW+1 ±0.5 Da", check: q1_mz_match, tab: bioanalytical, mw_source_tab: materials, mz_tolerance_da: 0.5, severity: fail}
+  - {id: BIO_004, section: Bioanalytical, description: "DP ≥ 30 V", check: numeric_threshold, tab: bioanalytical, field: dp_v, operator: ">=", threshold: 30, severity: fail}
+  - {id: BIO_005, section: Bioanalytical, description: "CE ≤ 100 V", check: numeric_threshold, tab: bioanalytical, field: ce_v, operator: "<=", threshold: 100, severity: fail}
+  - {id: RAW_001, section: Raw Data, description: "Compound name in Data Analysis matches Summary", check: compound_name_consistency, tabs: [data_analysis,summary], severity: fail}
+  - {id: RAW_002, section: Raw Data, description: "IS peak area %CV ≤ 25%", check: is_peak_area_cv, tab: data_analysis, cv_threshold: 25.0, severity: fail}
+  - {id: RAW_003, section: Raw Data, description: "IS assignment correct", check: manual, severity: manual, prompt: "Confirm IS assignment is correct for each compound group"}
+  - {id: RAW_004, section: Raw Data, description: "Blank peak area low", check: blank_peak_area, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, max_blank_fraction: 0.01, severity: warn}
+  - {id: RAW_005, section: Raw Data, description: "% Carryover ≤ 20%", check: manual, severity: manual, prompt: "Confirm carryover ≤ 20% — check Data Analysis carryover rows"}
+  - {id: RAW_006, section: Raw Data, description: "Signal/noise ≥ 3:1", check: signal_to_noise, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, min_snr: 3.0, severity: fail}
+  - {id: RAW_007, section: Raw Data, description: "Control %CVs acceptable", check: manual, severity: manual, prompt: "Check %CVs of control replicates are within acceptable range"}
+  - {id: RAW_008, section: Raw Data, description: "Fu% formula correct", check: manual, severity: manual, prompt: "Verify Fu% = (plasma_conc / buffer_conc) formula is correct in Data Analysis"}
+  - {id: RAW_009, section: Raw Data, description: "% Bound formula correct", check: manual, severity: manual, prompt: "Verify % Bound = 100 - Fu% formula is correct"}
+  - {id: RAW_010, section: Raw Data, description: "% Recovery formula correct", check: manual, severity: manual, prompt: "Verify % Recovery formula is correct in Data Analysis"}
+  - {id: RAW_011, section: Raw Data, description: "Stability formula correct", check: manual, severity: manual, prompt: "Verify stability calculation formula is correct"}
+  - {id: SUM_001, section: Summary, description: "Compound name in Summary matches all tabs", check: compound_name_consistency, tabs: [summary,materials,bioanalytical,data_analysis], severity: fail}
+  - {id: SUM_002, section: Summary, description: "Ketoconazole % Bound > 90%", check: control_range, compound_name: "Ketoconazole", field: percent_bound, min: 90.0, max: 100.0, severity: fail}
+  - {id: SUM_003, section: Summary, description: "Ketoconazole % Recovery: 75–125%", check: control_range, compound_name: "Ketoconazole", field: percent_recovery, min: 75.0, max: 125.0, severity: fail}
+  - {id: SUM_004, section: Summary, description: "% Bound matches raw data", check: manual, severity: manual, prompt: "Verify % Bound in Summary matches calculated values in Data Analysis"}
+  - {id: SUM_005, section: Summary, description: "% Unbound matches raw data", check: manual, severity: manual, prompt: "Verify % Unbound in Summary matches Data Analysis"}
+  - {id: SUM_006, section: Summary, description: "% Recovery matches raw data", check: manual, severity: manual, prompt: "Verify % Recovery in Summary matches Data Analysis"}
+  - {id: SUM_007, section: Summary, description: "% Remaining matches raw data", check: manual, severity: manual, prompt: "Verify % Remaining in Summary matches Data Analysis"}
+control_compounds: ["Ketoconazole"]

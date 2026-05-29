@@ -1,0 +1,259 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# qc_rules.yaml  —  Kinetic Solubility (Pharmaron)
+# All QC rules derived from the PC-018 Review Checklist, Solubility tab.
+# severity: fail   → blocks upload, must be resolved
+# severity: warn   → flagged in report, upload proceeds with annotation
+# severity: manual → cannot be auto-checked; outputs a checkbox row in QC report
+# ──────────────────────────────────────────────────────────────────────────────
+
+assay_type: kinetic_solubility
+
+rules:
+
+  # ── SECTION: Materials ─────────────────────────────────────────────────────
+
+  - id: MAT_001
+    section: Materials
+    description: "Compound name consistent across Signature, Materials, Bioanalytical, Summary, and Data Analysis tabs"
+    check: compound_name_consistency
+    tabs: [signature, materials, bioanalytical, summary, data_analysis]
+    severity: fail
+
+  - id: MAT_002
+    section: Materials
+    description: "MW match — requires manual confirmation against internal compound registry"
+    check: manual
+    severity: manual
+    prompt: "Confirm MW in Materials tab matches internal compound registry"
+
+  - id: MAT_003
+    section: Materials
+    description: "Phosphate buffer pH 7.4 confirmed in report name / study design"
+    check: text_contains
+    tab: signature
+    field: report_name
+    contains: "pH7.4"          # case-insensitive match
+    severity: fail
+
+  # ── SECTION: Study Design ──────────────────────────────────────────────────
+
+  - id: SD_001
+    section: Study Design
+    description: "10 mM stock solution confirmed in study design text"
+    check: text_contains
+    tab: study_design_text
+    contains: "10 mM"
+    severity: warn
+
+  - id: SD_002
+    section: Study Design
+    description: "Shaken at 25°C for 2 hours confirmed"
+    check: text_contains
+    tab: study_design_text
+    contains: "25"
+    severity: warn
+
+  - id: SD_003
+    section: Study Design
+    description: "Vacuum filtration confirmed in study design text"
+    check: text_contains
+    tab: study_design_text
+    contains: "filter"         # case-insensitive
+    severity: warn
+
+  - id: SD_004
+    section: Study Design
+    description: "Both 1:100 and 1:1000 dilutions present in Data Analysis sample IDs"
+    check: dilution_levels_present
+    tab: data_analysis
+    required_levels: [100, 1000]
+    severity: fail
+
+  - id: SD_005
+    section: Study Design
+    description: "300 µM standard present in Data Analysis (std_con row)"
+    check: standard_present
+    tab: data_analysis
+    expected_std_concentrations: [0.3, 3.0]  # 0.3 µM = 300 µM / 1000 dil; 3.0 µM = 300 µM / 100 dil
+    severity: fail
+
+  # ── SECTION: Bioanalytical ─────────────────────────────────────────────────
+
+  - id: BIO_001
+    section: Bioanalytical
+    description: "Compound name in Bioanalytical tab matches Summary and Materials"
+    check: compound_name_consistency
+    tabs: [bioanalytical, summary]
+    severity: fail
+
+  - id: BIO_002
+    section: Bioanalytical
+    description: "LC gradient table exists in Bioanalytical Method tab"
+    check: manual
+    severity: manual
+    prompt: "Visually confirm LC gradient table is present and looks correct in Bioanalytical Method tab"
+
+  - id: BIO_003
+    section: Bioanalytical
+    description: "Q1 m/z matches MW + 1 (protonated adduct [M+H]+) within tolerance"
+    check: q1_mz_match
+    tab: bioanalytical
+    mw_source_tab: materials
+    mz_tolerance_da: 0.5       # ±0.5 Da tolerance
+    severity: fail
+
+  - id: BIO_004
+    section: Bioanalytical
+    description: "Declustering potential (DP) ≥ 30 V for all compounds"
+    check: numeric_threshold
+    tab: bioanalytical
+    field: dp_v
+    operator: ">="
+    threshold: 30
+    severity: fail
+
+  - id: BIO_005
+    section: Bioanalytical
+    description: "Collision energy (CE) ≤ 100 V for all compounds"
+    check: numeric_threshold
+    tab: bioanalytical
+    field: ce_v
+    operator: "<="
+    threshold: 100
+    severity: fail
+
+  # ── SECTION: Raw Data ──────────────────────────────────────────────────────
+
+  - id: RAW_001
+    section: Raw Data
+    description: "Compound name in Data Analysis matches Summary"
+    check: compound_name_consistency
+    tabs: [data_analysis, summary]
+    severity: fail
+
+  - id: RAW_002
+    section: Raw Data
+    description: "IS peak area %CV ≤ 25% across replicates per compound block"
+    check: is_peak_area_cv
+    tab: data_analysis
+    field: is_peak_area
+    cv_threshold: 25.0
+    severity: fail
+
+  - id: RAW_003
+    section: Raw Data
+    description: "Check which internal standard is used per compound group (Tolbutamide vs Alprazolam)"
+    check: manual
+    severity: manual
+    prompt: "Confirm IS assignment is correct — Tolbutamide for Group 1, Alprazolam for Group 2 (check Data Analysis col B)"
+
+  - id: RAW_004
+    section: Raw Data
+    description: "Blank peak area is low (signal ≤ 1% of average sample peak area)"
+    check: blank_peak_area
+    tab: data_analysis
+    blank_row_label: "Single Blank"
+    analyte_field: analyte_peak_area
+    max_blank_fraction: 0.01   # blank must be ≤ 1% of average sample signal
+    severity: warn
+
+  - id: RAW_005
+    section: Raw Data
+    description: "Signal to noise ratio ≥ 3:1 (sample analyte PA / blank analyte PA)"
+    check: signal_to_noise
+    tab: data_analysis
+    blank_row_label: "Single Blank"
+    analyte_field: analyte_peak_area
+    min_snr: 3.0
+    severity: fail
+
+  - id: RAW_006
+    section: Raw Data
+    description: "Solubility %CV ≤ 25% across replicates (re-derived from raw peak areas)"
+    check: solubility_cv
+    tab: data_analysis
+    cv_threshold: 25.0
+    severity: fail
+
+  - id: RAW_007
+    section: Raw Data
+    description: "Solubility calculation verified via average and %CV cross-check (per-rep CRO values use Excel forward-references and cannot be compared row-by-row)"
+    check: manual
+    severity: manual
+    prompt: "Per-rep solubility values in Data Analysis col H use forward-reference Excel formulas. Verified indirectly via average (RAW_008) and %CV (RAW_009) checks."
+
+  - id: RAW_008
+    section: Raw Data
+    description: "Average solubility calculation verified (mean of replicates)"
+    check: average_calculation
+    tab: data_analysis
+    tolerance_pct: 1.0
+    severity: fail
+
+  - id: RAW_009
+    section: Raw Data
+    description: "%CV calculation verified (stddev/mean × 100)"
+    check: cv_calculation
+    tab: data_analysis
+    tolerance_pct: 1.0
+    severity: fail
+
+  # ── SECTION: Summary ───────────────────────────────────────────────────────
+
+  - id: SUM_001
+    section: Summary
+    description: "Compound name in Summary tab matches all other tabs"
+    check: compound_name_consistency
+    tabs: [summary, materials, bioanalytical, data_analysis]
+    severity: fail
+
+  - id: SUM_002
+    section: Summary
+    description: "Solubility (µM) in Summary matches computed average from Data Analysis"
+    check: summary_vs_raw_solubility
+    tolerance_pct: 1.0
+    severity: fail
+
+  - id: SUM_003
+    section: Summary
+    description: "Progesterone control solubility in accepted range 9.8–16.3 µM"
+    check: control_range
+    compound_name: "Progesterone"
+    field: solubility_um
+    min: 9.8
+    max: 16.3
+    severity: fail
+
+  - id: SUM_004
+    section: Summary
+    description: "Diclofenac control solubility in accepted range 225–375 µM"
+    check: control_range
+    compound_name: "Diclofenac"
+    field: solubility_um
+    min: 225.0
+    max: 375.0
+    severity: fail
+
+  # ── SECTION: Upload ────────────────────────────────────────────────────────
+
+  - id: UPL_001
+    section: Upload
+    description: "Upload file created with correct columns"
+    check: upload_columns_present
+    required_columns: ["Compound_ID", "batch_id", "Solubility (μM)", "CRO", "Comment"]
+    severity: fail
+
+  - id: UPL_002
+    section: Upload
+    description: "Only GEN- compounds included in upload (controls excluded)"
+    check: upload_test_compounds_only
+    severity: fail
+
+# ── BLQ / BLD detection ───────────────────────────────────────────────────────
+# If the CRO reports BLQ or BLD in sample_id or calculated_value,
+# the Comment field in the upload will be auto-populated.
+blq_detection:
+  enabled: true
+  search_fields: [sample_id, calculated_value]
+  keywords: ["BLQ", "BLD", "below limit", "below lower limit"]
+  comment_text: "below lower limit of detection"

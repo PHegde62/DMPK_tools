@@ -1,0 +1,25 @@
+assay_type: logd
+
+transformations:
+  - {field: compound_id, operation: strip_whitespace, output_field: compound_id}
+  - {field: batch_id,    operation: strip_whitespace, output_field: batch_id}
+  - {field: cro_name,    operation: extract_cro_name, output_field: cro_name}
+  - {field: logd,        operation: round, decimal_places: 2, output_field: logd}
+
+upload_column_map:
+  compound_id: "Compound_ID"
+  batch_id:    "batch_id"
+  logd:        "LogD"
+  cro_name:    "CRO"
+  comment:     "Comment"
+
+upload_columns_ordered:
+  - "Compound_ID"
+  - "batch_id"
+  - "LogD"
+  - "CRO"
+  - "Comment"
+
+comment_rules:
+  - condition: blq_detected
+    value: "below lower limit of detection"

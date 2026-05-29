@@ -1,0 +1,32 @@
+assay_type: ppb
+
+transformations:
+  - {field: compound_id,    operation: strip_whitespace, output_field: compound_id}
+  - {field: batch_id,       operation: strip_whitespace, output_field: batch_id}
+  - {field: cro_name,       operation: extract_cro_name, output_field: cro_name}
+  - {field: percent_bound,  operation: round, decimal_places: 1, output_field: percent_bound}
+  - {field: percent_unbound,operation: round, decimal_places: 1, output_field: percent_unbound}
+  - {field: percent_recovery,operation: round, decimal_places: 1, output_field: percent_recovery}
+  - {field: percent_remaining,operation: round, decimal_places: 1, output_field: percent_remaining}
+
+upload_column_map:
+  compound_id:       "Compound_ID"
+  batch_id:          "batch_id"
+  species:           "Species"
+  percent_bound:     "% Bound"
+  percent_unbound:   "% Unbound"
+  percent_recovery:  "% Recovery"
+  percent_remaining: "% Remaining"
+  condition:         "Condition"
+  cro_name:          "CRO"
+
+upload_columns_ordered:
+  - "Compound_ID"
+  - "batch_id"
+  - "Species"
+  - "% Bound"
+  - "% Unbound"
+  - "% Recovery"
+  - "% Remaining"
+  - "Condition"
+  - "CRO"

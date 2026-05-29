@@ -1,0 +1,33 @@
+assay_type: hepatocyte_stability
+
+transformations:
+  - {field: compound_id,             operation: strip_whitespace, output_field: compound_id}
+  - {field: batch_id,                operation: strip_whitespace, output_field: batch_id}
+  - {field: cro_name,                operation: extract_cro_name, output_field: cro_name}
+  - {field: half_life_min,           operation: round, decimal_places: 1, output_field: half_life_min}
+  - {field: clint_ulmin_cells,       operation: round, decimal_places: 1, output_field: clint_ulmin_cells}
+  - {field: scaleup_clint_mlminkg,   operation: round, decimal_places: 1, output_field: scaleup_clint_mlminkg}
+  - {field: predicted_clh_mlminkg,   operation: round, decimal_places: 1, output_field: predicted_clh_mlminkg}
+  - {field: hepatic_er,              operation: round, decimal_places: 3, output_field: hepatic_er}
+
+upload_column_map:
+  compound_id:            "Compound_ID"
+  batch_id:               "batch_id"
+  species:                "Species"
+  half_life_min:          "in vitro t1/2 (min)"
+  clint_ulmin_cells:      "in vitro CLint (μL/min/106 cells)"
+  scaleup_clint_mlminkg:  "Scale-up CLint (mL/min/kg)"
+  predicted_clh_mlminkg:  "Predicted Hepatic CLH (mL/min/kg)"
+  hepatic_er:             "Hepatic Extraction Ratio (ER)"
+  cro_name:               "CRO"
+
+upload_columns_ordered:
+  - "Compound_ID"
+  - "batch_id"
+  - "Species"
+  - "in vitro t1/2 (min)"
+  - "in vitro CLint (μL/min/106 cells)"
+  - "Scale-up CLint (mL/min/kg)"
+  - "Predicted Hepatic CLH (mL/min/kg)"
+  - "Hepatic Extraction Ratio (ER)"
+  - "CRO"

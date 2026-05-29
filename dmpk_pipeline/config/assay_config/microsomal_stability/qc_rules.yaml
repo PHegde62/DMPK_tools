@@ -1,0 +1,332 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# qc_rules.yaml — Microsomal Stability (Pharmaron)
+# Rules extracted from PC-018 Review Checklist, Mic Stability tab.
+# ──────────────────────────────────────────────────────────────────────────────
+
+assay_type: microsomal_stability
+
+rules:
+
+  # ── Materials ──────────────────────────────────────────────────────────────
+  - id: MAT_001
+    section: Materials
+    description: "Compound name consistent across all tabs"
+    check: compound_name_consistency
+    tabs: [signature, materials, bioanalytical, summary, data_analysis]
+    severity: fail
+
+  - id: MAT_002
+    section: Materials
+    description: "MW match — confirm against internal compound registry"
+    check: manual
+    severity: manual
+    prompt: "Confirm MW in Materials tab matches internal compound registry"
+
+  - id: MAT_003
+    section: Materials
+    description: "Pooled microsomes confirmed in materials"
+    check: text_contains
+    tab: study_design_text
+    contains: "microsome"
+    severity: warn
+
+  # ── Study Design ───────────────────────────────────────────────────────────
+  - id: SD_001
+    section: Study Design
+    description: "0.5 mg/mL microsomes concentration confirmed"
+    check: text_contains
+    tab: study_design_text
+    contains: "0.5 mg"
+    severity: warn
+
+  - id: SD_002
+    section: Study Design
+    description: "1 mM NADPH cofactor confirmed"
+    check: text_contains
+    tab: study_design_text
+    contains: "NADPH"
+    severity: warn
+
+  - id: SD_003
+    section: Study Design
+    description: "2 mM UDPGA cofactor confirmed"
+    check: text_contains
+    tab: study_design_text
+    contains: "UDPGA"
+    severity: warn
+
+  - id: SD_004
+    section: Study Design
+    description: "1 µM compound concentration confirmed"
+    check: text_contains
+    tab: study_design_text
+    contains: "1 uM"
+    severity: warn
+
+  - id: SD_005
+    section: Study Design
+    description: "≥ 4 volumes crash solvent used"
+    check: text_contains
+    tab: study_design_text
+    contains: "4 volume"
+    severity: warn
+
+  # ── Bioanalytical ──────────────────────────────────────────────────────────
+  - id: BIO_001
+    section: Bioanalytical
+    description: "Compound name in Bioanalytical tab matches Summary"
+    check: compound_name_consistency
+    tabs: [bioanalytical, summary]
+    severity: fail
+
+  - id: BIO_002
+    section: Bioanalytical
+    description: "LC gradient table present and correct"
+    check: manual
+    severity: manual
+    prompt: "Visually confirm LC gradient table is present and looks correct in Bioanalytical Method tab"
+
+  - id: BIO_003
+    section: Bioanalytical
+    description: "Q1 m/z matches MW+1 within ±0.5 Da"
+    check: q1_mz_match
+    tab: bioanalytical
+    mw_source_tab: materials
+    mz_tolerance_da: 0.5
+    severity: fail
+
+  - id: BIO_004
+    section: Bioanalytical
+    description: "Declustering potential (DP) ≥ 30 V"
+    check: numeric_threshold
+    tab: bioanalytical
+    field: dp_v
+    operator: ">="
+    threshold: 30
+    severity: fail
+
+  - id: BIO_005
+    section: Bioanalytical
+    description: "Collision energy (CE) ≤ 100 V"
+    check: numeric_threshold
+    tab: bioanalytical
+    field: ce_v
+    operator: "<="
+    threshold: 100
+    severity: fail
+
+  # ── Raw Data ───────────────────────────────────────────────────────────────
+  - id: RAW_001
+    section: Raw Data
+    description: "Compound name in Data Analysis matches Summary"
+    check: compound_name_consistency
+    tabs: [data_analysis, summary]
+    severity: fail
+
+  - id: RAW_002
+    section: Raw Data
+    description: "IS peak area %CV ≤ 25%"
+    check: is_peak_area_cv
+    tab: data_analysis
+    cv_threshold: 25.0
+    severity: fail
+
+  - id: RAW_003
+    section: Raw Data
+    description: "Internal standard assignment correct"
+    check: manual
+    severity: manual
+    prompt: "Confirm IS assignment is correct for each compound group (check Data Analysis col B)"
+
+  - id: RAW_004
+    section: Raw Data
+    description: "Blank peak area is low relative to sample"
+    check: blank_peak_area
+    tab: data_analysis
+    blank_row_label: "Single Blank"
+    analyte_field: analyte_peak_area
+    max_blank_fraction: 0.01
+    severity: warn
+
+  - id: RAW_005
+    section: Raw Data
+    description: "Signal to noise ratio ≥ 3:1"
+    check: signal_to_noise
+    tab: data_analysis
+    blank_row_label: "Single Blank"
+    analyte_field: analyte_peak_area
+    min_snr: 3.0
+    severity: fail
+
+  - id: RAW_006
+    section: Raw Data
+    description: "R² of control linear fit ≥ 0.95"
+    check: manual
+    severity: manual
+    prompt: "Check R² of control compound linear fit — must be ≥ 0.95. Verify in Data Analysis tab."
+
+  - id: RAW_007
+    section: Raw Data
+    description: "Control fit: SE of slope is small"
+    check: manual
+    severity: manual
+    prompt: "Verify SE of slope is small for control compound linear regression"
+
+  - id: RAW_008
+    section: Raw Data
+    description: "Control fit: slope/SE ratio is large"
+    check: manual
+    severity: manual
+    prompt: "Verify slope/SE ratio is large (high signal quality) for control compounds"
+
+  - id: RAW_009
+    section: Raw Data
+    description: "Control fit: p-value < 0.05"
+    check: manual
+    severity: manual
+    prompt: "Confirm p-value of linear fit < 0.05 for control compounds"
+
+  - id: RAW_010
+    section: Raw Data
+    description: "Linear fit of test compound looks correct"
+    check: manual
+    severity: manual
+    prompt: "Visually inspect linear fit of test compound in Data Analysis — does the trend look correct?"
+
+  # ── Summary ────────────────────────────────────────────────────────────────
+  - id: SUM_001
+    section: Summary
+    description: "Compound name in Summary matches all tabs"
+    check: compound_name_consistency
+    tabs: [summary, materials, bioanalytical, data_analysis]
+    severity: fail
+
+  - id: SUM_002
+    section: Summary
+    description: "T½ values in Summary match raw data calculations"
+    check: manual
+    severity: manual
+    prompt: "Verify T½ values in Summary tab match values calculated in Data Analysis tab"
+
+  - id: SUM_003
+    section: Summary
+    description: "Clint values in Summary match raw data calculations"
+    check: manual
+    severity: manual
+    prompt: "Verify Clint values in Summary tab match calculated Clint in Data Analysis"
+
+  - id: SUM_004
+    section: Summary
+    description: "Scale-up calculation correct"
+    check: manual
+    severity: manual
+    prompt: "Verify scale-up calculation from Clint (in vitro) to CLhep is correct"
+
+  - id: SUM_005
+    section: Summary
+    description: "% Remaining at final timepoint matches raw data"
+    check: manual
+    severity: manual
+    prompt: "Check % Remaining at final timepoint matches Data Analysis values"
+
+  - id: SUM_006
+    section: Summary
+    description: "No-cofactor control % remaining: 75–125%"
+    check: control_range
+    compound_name: "no_cofactor"
+    field: percent_remaining
+    min: 75.0
+    max: 125.0
+    severity: fail
+
+  - id: SUM_007
+    section: Summary
+    description: "Human Verapamil T½: 4–10 min"
+    check: control_range
+    compound_name: "Verapamil"
+    field: half_life_min
+    min: 4.0
+    max: 10.0
+    species_filter: "human"
+    severity: fail
+
+  - id: SUM_008
+    section: Summary
+    description: "Human Verapamil Clint: 150–300 µL/min/mg"
+    check: control_range
+    compound_name: "Verapamil"
+    field: clint_ulminmg
+    min: 150.0
+    max: 300.0
+    species_filter: "human"
+    severity: fail
+
+  - id: SUM_009
+    section: Summary
+    description: "Human Raloxifene T½: 8–14 min"
+    check: control_range
+    compound_name: "Raloxifene"
+    field: half_life_min
+    min: 8.0
+    max: 14.0
+    species_filter: "human"
+    severity: fail
+
+  - id: SUM_010
+    section: Summary
+    description: "Human Raloxifene Clint: 95–150 µL/min/mg"
+    check: control_range
+    compound_name: "Raloxifene"
+    field: clint_ulminmg
+    min: 95.0
+    max: 150.0
+    species_filter: "human"
+    severity: fail
+
+  - id: SUM_011
+    section: Summary
+    description: "Rat Verapamil T½: 2–9 min"
+    check: control_range
+    compound_name: "Verapamil"
+    field: half_life_min
+    min: 2.0
+    max: 9.0
+    species_filter: "rat"
+    severity: fail
+
+  - id: SUM_012
+    section: Summary
+    description: "Rat Verapamil Clint: 150–650 µL/min/mg"
+    check: control_range
+    compound_name: "Verapamil"
+    field: clint_ulminmg
+    min: 150.0
+    max: 650.0
+    species_filter: "rat"
+    severity: fail
+
+  - id: SUM_013
+    section: Summary
+    description: "Rat Raloxifene T½: 7–15 min"
+    check: control_range
+    compound_name: "Raloxifene"
+    field: half_life_min
+    min: 7.0
+    max: 15.0
+    species_filter: "rat"
+    severity: fail
+
+  - id: SUM_014
+    section: Summary
+    description: "Rat Raloxifene Clint: 60–200 µL/min/mg"
+    check: control_range
+    compound_name: "Raloxifene"
+    field: clint_ulminmg
+    min: 60.0
+    max: 200.0
+    species_filter: "rat"
+    severity: fail
+
+control_compounds:
+  - "Verapamil"
+  - "Raloxifene"

@@ -1,0 +1,33 @@
+assay_type: logd
+rules:
+  - {id: MAT_001, section: Materials, description: "Compound name consistent across tabs", check: compound_name_consistency, tabs: [signature,materials,bioanalytical,summary], severity: fail}
+  - {id: MAT_002, section: Materials, description: "MW match — manual check", check: manual, severity: manual, prompt: "Confirm MW matches internal registry"}
+  - {id: MAT_003, section: Materials, description: "Buffer pH 7.35–7.45 confirmed", check: text_contains, tab: study_design_text, contains: "7.4", severity: warn}
+  - {id: SD_001, section: Study Design, description: "Buffer saturated with octanol confirmed", check: text_contains, tab: study_design_text, contains: "octanol", severity: warn}
+  - {id: SD_002, section: Study Design, description: "Mixed 2 hours by shaking", check: text_contains, tab: study_design_text, contains: "2 hour", severity: warn}
+  - {id: SD_003, section: Study Design, description: "Two layers separated over weekend", check: manual, severity: manual, prompt: "Confirm two layers (octanol/buffer) were allowed to separate over weekend"}
+  - {id: SD_004, section: Study Design, description: "1 mM working concentration confirmed", check: text_contains, tab: study_design_text, contains: "1 mM", severity: warn}
+  - {id: SD_005, section: Study Design, description: "1:100 in 500 µL buffer + 500 µL octanol", check: manual, severity: manual, prompt: "Confirm 1:100 dilution in 500 µL buffer + 500 µL octanol as per SOP"}
+  - {id: SD_006, section: Study Design, description: "1000-fold dilution sample prepared", check: manual, severity: manual, prompt: "Confirm 1000-fold dilution sample prepared for buffer phase"}
+  - {id: SD_007, section: Study Design, description: "10-fold dilution sample prepared", check: manual, severity: manual, prompt: "Confirm 10-fold dilution sample prepared for octanol phase"}
+  - {id: BIO_001, section: Bioanalytical, description: "Compound name in Bioanalytical matches Summary", check: compound_name_consistency, tabs: [bioanalytical,summary], severity: fail}
+  - {id: BIO_002, section: Bioanalytical, description: "LC gradient present", check: manual, severity: manual, prompt: "Visually confirm LC gradient table present and correct"}
+  - {id: BIO_003, section: Bioanalytical, description: "Q1 m/z matches MW+1 ±0.5 Da", check: q1_mz_match, tab: bioanalytical, mw_source_tab: materials, mz_tolerance_da: 0.5, severity: fail}
+  - {id: BIO_004, section: Bioanalytical, description: "DP ≥ 30 V", check: numeric_threshold, tab: bioanalytical, field: dp_v, operator: ">=", threshold: 30, severity: fail}
+  - {id: BIO_005, section: Bioanalytical, description: "CE ≤ 100 V", check: numeric_threshold, tab: bioanalytical, field: ce_v, operator: "<=", threshold: 100, severity: fail}
+  - {id: RAW_001, section: Raw Data, description: "IS peak area %CV ≤ 25%", check: is_peak_area_cv, tab: data_analysis, cv_threshold: 25.0, severity: fail}
+  - {id: RAW_002, section: Raw Data, description: "IS % recovery 75–125%", check: manual, severity: manual, prompt: "Verify IS % recovery is within 75–125% range in Data Analysis"}
+  - {id: RAW_003, section: Raw Data, description: "Blank peak area low", check: blank_peak_area, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, max_blank_fraction: 0.01, severity: warn}
+  - {id: RAW_004, section: Raw Data, description: "% Carryover ≤ 20%", check: manual, severity: manual, prompt: "Confirm carryover ≤ 20%"}
+  - {id: RAW_005, section: Raw Data, description: "Signal/noise ≥ 3:1", check: signal_to_noise, tab: data_analysis, blank_row_label: "Single Blank", analyte_field: analyte_peak_area, min_snr: 3.0, severity: fail}
+  - {id: RAW_006, section: Raw Data, description: "Dilution factor for buffer: 10", check: manual, severity: manual, prompt: "Confirm buffer phase dilution factor is 10 in Data Analysis formulas"}
+  - {id: RAW_007, section: Raw Data, description: "Dilution factor for octanol: 1000", check: manual, severity: manual, prompt: "Confirm octanol phase dilution factor is 1000 in Data Analysis formulas"}
+  - {id: RAW_008, section: Raw Data, description: "LogD formula correct", check: manual, severity: manual, prompt: "Verify LogD = log10([octanol]/[buffer]) formula is correct"}
+  - {id: RAW_009, section: Raw Data, description: "Mean LogD formula correct", check: manual, severity: manual, prompt: "Verify mean LogD formula is AVERAGE of replicates"}
+  - {id: RAW_010, section: Raw Data, description: "%CV formula correct", check: manual, severity: manual, prompt: "Verify %CV = STDDEV/MEAN × 100 formula is correct"}
+  - {id: SUM_001, section: Summary, description: "Compound name in Summary matches all tabs", check: compound_name_consistency, tabs: [summary,materials,bioanalytical], severity: fail}
+  - {id: SUM_002, section: Summary, description: "LogD replicate 1 matches raw data", check: manual, severity: manual, prompt: "Verify LogD replicate 1 in Summary matches Data Analysis"}
+  - {id: SUM_003, section: Summary, description: "LogD replicate 2 matches raw data", check: manual, severity: manual, prompt: "Verify LogD replicate 2 in Summary matches Data Analysis"}
+  - {id: SUM_004, section: Summary, description: "LogD mean matches raw data", check: manual, severity: manual, prompt: "Verify mean LogD in Summary matches Data Analysis"}
+  - {id: SUM_005, section: Summary, description: "Nicardipine LogD control: 4.0–4.9", check: control_range, compound_name: "Nicardipine", field: logd, min: 4.0, max: 4.9, severity: fail}
+control_compounds: ["Nicardipine"]
