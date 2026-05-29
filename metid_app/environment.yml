@@ -1,0 +1,81 @@
+name: metid
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # ── Python runtime ────────────────────────────────────────────────────────
+  - python=3.11
+
+  # ── Cheminformatics core ──────────────────────────────────────────────────
+  - rdkit>=2023.09.5          # molecule manipulation, SVG rendering, InChI/SMILES
+  - openbabel>=3.1.1          # optional format interop (SDF, MOL2, etc.)
+
+  # ── Scientific stack ──────────────────────────────────────────────────────
+  - numpy>=1.26
+  - pandas>=2.1
+  - scipy>=1.11
+  - scikit-learn>=1.3         # feature pipelines for future ML plug-ins
+
+  # ── Web / API server ──────────────────────────────────────────────────────
+  - fastapi>=0.111
+  - uvicorn>=0.29             # ASGI server (use uvicorn[standard] via pip for extras)
+  - python-multipart>=0.0.9   # file upload support
+  - httpx>=0.27               # async HTTP client (testing + proxy calls)
+  - streamlit>=1.35           # interactive web dashboard frontend
+  - pydantic>=2.7             # data validation (FastAPI v2 requires pydantic v2)
+  - pydantic-settings>=2.2    # settings management via env vars
+
+  # ── Task queue & caching ──────────────────────────────────────────────────
+  - celery>=5.3               # async job queue for expensive metabolite generation
+  - redis-py>=5.0             # Redis client (broker + result backend)
+  - hiredis>=2.3              # C-level Redis parser (performance)
+
+  # ── Database ──────────────────────────────────────────────────────────────
+  - sqlalchemy>=2.0           # ORM
+  - alembic>=1.13             # schema migrations
+  - psycopg2>=2.9             # PostgreSQL driver (production)
+  - aiosqlite>=0.20           # async SQLite driver (dev / CI)
+
+  # ── Templating / static files ─────────────────────────────────────────────
+  - jinja2>=3.1
+
+  # ── Logging / observability ───────────────────────────────────────────────
+  - structlog>=24.1           # structured JSON logging
+  - prometheus-client>=0.20   # /metrics endpoint
+
+  # ── Dev / test toolchain ──────────────────────────────────────────────────
+  - pytest>=8.1
+  - pytest-asyncio>=0.23
+  - pytest-cov>=5.0
+  - httpx>=0.27               # AsyncClient for FastAPI test client
+  - black>=24.3
+  - ruff>=0.4
+  - mypy>=1.9
+  - pre-commit>=3.7
+
+  # ── Pip-only dependencies (conda-forge packages unavailable) ─────────────
+  - pip
+  - pip:
+      # SyGMa — rule-based Phase I / II metabolite predictor
+      - sygma>=1.1.0
+
+      # ASGI extras (WebSockets, HTTP/2 support)
+      - "uvicorn[standard]>=0.29"
+
+      # Molecule drawing extras
+      - cairosvg>=2.7          # SVG → PNG/PDF conversion
+
+      # Auth / security
+      - python-jose[cryptography]>=3.3
+      - passlib[bcrypt]>=1.7
+
+      # Background task helpers
+      - tenacity>=8.2          # retry logic for external service calls
+
+      # Cloud storage
+      - boto3>=1.34             # AWS S3 (results / molecule cache)
+      - google-cloud-storage>=2.16  # GCS alternative
+
+      # Deep-learning plug-in stubs (uncomment when integrating)
+      # - torch>=2.2            # MetaTrans / Meta-Predictor backbone
+      # - transformers>=4.40    # HuggingFace model hub
