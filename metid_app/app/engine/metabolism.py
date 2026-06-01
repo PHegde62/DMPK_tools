@@ -497,12 +497,7 @@ class DeepLearningPredictor:
         self.confidence_threshold = confidence_threshold
         self._rng = random.Random(seed)
         self._model_loaded = False   # True once real weights are attached
-        logger.info(
-            "dl_predictor_init",
-            model=self.MODEL_NAME,
-            top_k=top_k,
-            mode="emulator",
-        )
+        logger.info("dl_predictor_init")
 
     # -- Class-method constructors --------------------------------------------
 
@@ -531,12 +526,7 @@ class DeepLearningPredictor:
             return predictor
         """
         instance = cls(**kwargs)
-        logger.warning(
-            "dl_checkpoint_stub",
-            path=checkpoint_path,
-            msg="Real model weights not loaded — using emulator. "
-                "Implement from_checkpoint() to enable live inference.",
-        )
+        logger.warning("dl_checkpoint_stub")
         return instance
 
     # -- Tokenisation ---------------------------------------------------------
@@ -605,11 +595,7 @@ class DeepLearningPredictor:
             sanitize_flags = Chem.SanitizeFlags.SANITIZE_ALL
             result_flag = Chem.SanitizeMol(mol, sanitize_flags, catchErrors=True)
             if result_flag != Chem.SanitizeFlags.SANITIZE_NONE:
-                logger.debug(
-                    "dl_smiles_sanitize_failed",
-                    smiles=smiles[:80],
-                    flag=str(result_flag),
-                )
+                logger.debug("dl_smiles_sanitize_failed")
                 return None
 
             if mol.GetNumHeavyAtoms() == 0:
@@ -1094,13 +1080,7 @@ class DeepLearningPredictor:
             dl_warnings.append(f"DL attention extraction error: {exc}")
             attention_weights = {}
 
-        logger.info(
-            "dl_predict_complete",
-            model=self.MODEL_NAME,
-            raw_predictions=len(raw_predictions),
-            filtered_predictions=len(predictions),
-            attention_atoms=len(attention_weights),
-        )
+        logger.info("dl_predict_complete")
 
         return predictions, attention_weights, dl_warnings
 
@@ -1431,12 +1411,7 @@ def _validate_and_normalise(smiles: str) -> Tuple[Chem.Mol, MoleculeMetadata]:
         num_aromatic_rings=rdMolDescriptors.CalcNumAromaticRings(mol),
     )
 
-    logger.debug(
-        "molecule_normalised",
-        canonical=canonical_smiles,
-        mw=metadata.molecular_weight,
-        formula=metadata.molecular_formula,
-    )
+    logger.debug("molecule_normalised")
     return mol, metadata
 
 
@@ -1537,12 +1512,7 @@ def _run_sygma(
     results = sorted(seen.values(), key=lambda x: x.probability, reverse=True)
     results = results[:max_metabolites]
 
-    logger.info(
-        "sygma_complete",
-        unique=len(results),
-        p1=sum(1 for r in results if r.phase == 1),
-        p2=sum(1 for r in results if r.phase == 2),
-    )
+    logger.info("sygma_complete")
     return results
 
 
@@ -1782,13 +1752,6 @@ def predict(
         pipeline_stats=pipeline_stats,
     )
 
-    logger.info(
-        "ensemble_predict_complete",
-        canonical=parent_meta.canonical_smiles,
-        metabolites_total=len(merged_metabolites),
-        consensus_count=pipeline_stats.get("consensus_count", 0),
-        soft_spots_total=len(soft_spots),
-        elapsed_s=round(elapsed, 3),
-    )
+    logger.info("ensemble_predict_complete")
 
     return result
