@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MetID — Metabolite Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #080e1c;
+      --bg-card:   #0d1628;
+      --bg-raised: #162038;
+      --border:    #1e3a5f;
+      --sky:       #38bdf8;
+      --sky-dim:   #7dd3fc;
+      --emerald:   #34d399;
+      --amber:     #fbbf24;
+      --rose:      #fb7185;
+      --violet:    #a78bfa;
+      --slate:     #94a3b8;
+      --slate-dim: #64748b;
+      --white:     #f1f5f9;
+      --font-d:    'Syne', sans-serif;
+      --font-m:    'JetBrains Mono', monospace;
+      --r:         10px;
+      --r-lg:      16px;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-m);
+      background: var(--bg);
+      color: var(--white);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background grid texture ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* ── Layout wrapper ──────────────────────────────────────────────────── */
+    .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      padding: 2.5rem 1.5rem 2rem;
+      margin: 0 -1.5rem 2.5rem;
+      background: linear-gradient(135deg, #060c1a 0%, #0b1830 50%, #070f1e 100%);
+      border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    header::after {
+      content: '';
+      position: absolute; top: -60%; right: -5%;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(56,189,248,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .header-inner { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 1; }
+    .logo {
+      font-family: var(--font-d);
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--sky-dim), var(--emerald));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1.5px;
+      line-height: 1;
+    }
+    .logo-sub {
+      font-size: 0.72rem;
+      color: var(--slate-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      margin-top: 0.4rem;
+    }
+    .header-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem; }
+    .hbadge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(56,189,248,0.07);
+      border: 1px solid rgba(56,189,248,0.2);
+      color: var(--sky);
+      font-size: 0.65rem;
+      padding: 3px 10px; border-radius: 20px; letter-spacing: 0.07em;
+    }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--slate); font-size: 0.75rem;
+      text-decoration: none; margin-bottom: 1.2rem;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--sky); }
+
+    /* ── Section label ───────────────────────────────────────────────────── */
+    .sec {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--sky);
+      border-bottom: 1px solid rgba(56,189,248,0.15);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.9rem;
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.3rem 1.5rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      border-color: rgba(56,189,248,0.35);
+      box-shadow: 0 0 24px rgba(56,189,248,0.08);
+    }
+
+    /* ── Input section ───────────────────────────────────────────────────── */
+    .input-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0.8rem; }
+    textarea, input[type=text] {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--sky-dim);
+      font-family: var(--font-m);
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      width: 100%;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    textarea:focus, input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.12);
+    }
+    textarea { min-height: 68px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent;
+      border: 1px solid var(--sky);
+      color: var(--sky-dim);
+      font-family: var(--font-m);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 9px 20px;
+      border-radius: var(--r);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s;
+    }
+    .btn:hover {
+      background: rgba(56,189,248,0.10);
+      box-shadow: 0 0 16px rgba(56,189,248,0.20);
+      transform: translateY(-1px);
+    }
+    .btn:active { transform: translateY(0); }
+    .btn-run {
+      background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(52,211,153,0.10));
+      border-color: var(--sky);
+      color: var(--white);
+      padding: 10px 28px;
+      font-size: 0.8rem;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.65rem;
+    }
+
+    /* ── Example pills ───────────────────────────────────────────────────── */
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.2rem; }
+    .ex-pill {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.68rem;
+      color: var(--slate);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ex-pill:hover {
+      border-color: var(--sky);
+      color: var(--sky);
+      background: rgba(56,189,248,0.06);
+    }
+
+    /* ── Params row ──────────────────────────────────────────────────────── */
+    .params { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 1.2rem; align-items: center; }
+    .param-group { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+    .param-label { font-size: 0.60rem; color: var(--slate-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    select, input[type=range] {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--white);
+      font-family: var(--font-m);
+      font-size: 0.78rem;
+      padding: 5px 8px;
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus { border-color: var(--sky); }
+    input[type=range] { padding: 0; width: 100px; accent-color: var(--sky); }
+    .range-val { font-size: 0.72rem; color: var(--sky); }
+
+    /* ── Spinner ─────────────────────────────────────────────────────────── */
+    .spinner-wrap {
+      display: none;
+      align-items: center; gap: 12px;
+      padding: 1.5rem;
+      color: var(--slate);
+      font-size: 0.82rem;
+    }
+    .spinner-wrap.active { display: flex; }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--sky);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error / warning banners ─────────────────────────────────────────── */
+    .banner {
+      display: none;
+      border-radius: 0 var(--r) var(--r) 0;
+      padding: 0.9rem 1.2rem;
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+    }
+    .banner.show { display: block; }
+    .banner-err {
+      background: rgba(251,113,133,0.08);
+      border-left: 3px solid var(--rose);
+      color: var(--rose);
+    }
+    .banner-warn {
+      background: rgba(251,191,36,0.07);
+      border-left: 3px solid var(--amber);
+      color: var(--amber);
+    }
+
+    /* ── Results grid ────────────────────────────────────────────────────── */
+    #results { display: none; }
+    #results.show { display: block; }
+
+    /* ── Metric cards ────────────────────────────────────────────────────── */
+    .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.5rem; }
+    @media(max-width:700px) { .metrics { grid-template-columns: repeat(2,1fr); } }
+    .mcard {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1rem 1.1rem;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .mcard:hover { border-color: var(--sky); box-shadow: 0 0 12px rgba(56,189,248,0.12); transform: translateY(-2px); }
+    .mval { font-family: var(--font-d); font-size: 2rem; font-weight: 700; line-height: 1; }
+    .mlbl { font-size: 0.62rem; color: var(--slate-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+    .c-sky { color: var(--sky); }
+    .c-em  { color: var(--emerald); }
+    .c-am  { color: var(--amber); }
+    .c-rose{ color: var(--rose); }
+
+    /* ── Three-column panels ─────────────────────────────────────────────── */
+    .panels { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr; gap: 16px; }
+    @media(max-width:900px) { .panels { grid-template-columns: 1fr; } }
+
+    /* ── Molecule SVG ────────────────────────────────────────────────────── */
+    .mol-wrap {
+      display: flex; justify-content: center;
+      margin: 0.5rem 0 0.8rem;
+    }
+    .mol-frame {
+      background: #fff;
+      border-radius: var(--r);
+      padding: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px rgba(56,189,248,0.18);
+      transition: box-shadow 0.3s;
+    }
+    .mol-frame:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 32px rgba(56,189,248,0.28); }
+    .mol-frame img { display: block; max-width: 100%; }
+
+    /* ── Soft spot rows ──────────────────────────────────────────────────── */
+    .spot-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(30,58,95,0.5);
+    }
+    .spot-row:last-child { border-bottom: none; }
+    .spot-rank {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700;
+      background: rgba(251,113,133,0.12);
+      border: 1px solid rgba(251,113,133,0.3);
+      color: var(--rose);
+    }
+    .spot-body { flex: 1; min-width: 0; }
+    .spot-atom { font-size: 0.82rem; font-weight: 600; }
+    .spot-rule { font-size: 0.65rem; color: var(--slate-dim); margin-top: 1px; }
+    .spot-vi { text-align: right; min-width: 60px; }
+    .spot-vi-num { font-size: 0.78rem; font-weight: 700; color: var(--rose); }
+    .bar-track { background: rgba(30,58,95,0.8); border-radius: 3px; height: 4px; margin-top: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--rose), var(--amber)); border-radius: 3px; }
+
+    /* ── Metabolite table ────────────────────────────────────────────────── */
+    .met-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+    .met-table th {
+      background: var(--bg-raised);
+      color: var(--sky);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.62rem;
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+    }
+    .met-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(30,58,95,0.4);
+      color: var(--slate);
+      vertical-align: middle;
+    }
+    .met-table tr:hover td { background: rgba(56,189,248,0.03); }
+    .met-table .smiles-cell {
+      font-size: 0.68rem;
+      color: var(--sky-dim);
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tbl-wrap { max-height: 420px; overflow-y: auto; border-radius: var(--r); border: 1px solid var(--border); }
+
+    /* ── Badges ──────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 0.60rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+    }
+    .b-consensus { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); color: var(--emerald); }
+    .b-rule       { background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.25); color: var(--sky); }
+    .b-dl         { background: rgba(167,139,250,0.10); border: 1px solid rgba(167,139,250,0.25); color: var(--violet); }
+    .b-p1         { background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); color: var(--sky-dim); }
+    .b-p2         { background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.25); color: var(--amber); }
+
+    /* ── Prob bar ────────────────────────────────────────────────────────── */
+    .prob-bar { display: flex; align-items: center; gap: 6px; }
+    .prob-track { background: var(--bg-raised); border-radius: 2px; height: 3px; width: 50px; overflow: hidden; }
+    .prob-fill { height: 100%; background: var(--emerald); border-radius: 2px; }
+
+    /* ── Prop grid ───────────────────────────────────────────────────────── */
+    .prop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .prop-item { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+    .prop-k { font-size: 0.58rem; color: var(--slate-dim); text-transform: uppercase; letter-spacing: 0.07em; }
+    .prop-v { font-size: 0.84rem; font-weight: 600; color: var(--white); margin-top: 1px; }
+
+    /* ── Pipeline stats ──────────────────────────────────────────────────── */
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(30,58,95,0.4);
+      font-size: 0.75rem;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-k { color: var(--slate); }
+    .stat-v { color: var(--white); font-weight: 600; }
+
+    /* ── SMILES display ──────────────────────────────────────────────────── */
+    .smiles-display {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 7px 12px;
+      font-size: 0.72rem;
+      color: var(--sky-dim);
+      word-break: break-all;
+      margin-top: 0.6rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--slate-dim);
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 0 0.5rem;
+      margin-top: 3rem;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Filter tabs ─────────────────────────────────────────────────────── */
+    .filter-tabs { display: flex; gap: 8px; margin-bottom: 0.8rem; }
+    .ftab {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.65rem;
+      color: var(--slate);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ftab.active, .ftab:hover {
+      border-color: var(--sky);
+      color: var(--sky);
+      background: rgba(56,189,248,0.07);
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--sky); }
+
+    /* ── Fade-in animation ───────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s ease both; }
+    .fade-up-2 { animation: fadeUp 0.4s 0.1s ease both; }
+    .fade-up-3 { animation: fadeUp 0.4s 0.2s ease both; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <a href="../" class="back-link">← DMPK Tools Hub</a>
+    <div class="logo">MetID</div>
+    <div class="logo-sub">Metabolite Intelligence Platform · Ensemble Consensus Engine · v2.0</div>
+    <div class="header-badges">
+      <span class="hbadge">⚗ SyGMa Rules</span>
+      <span class="hbadge">🧠 DL Emulator</span>
+      <span class="hbadge">🔬 RDKit</span>
+      <span class="hbadge">⚡ FastAPI</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ── Input card ──────────────────────────────────────────────────────── -->
+  <div class="card fade-up" style="margin-bottom:1.2rem">
+    <p class="sec">Parent Molecule SMILES</p>
+
+    <p style="font-size:0.72rem;color:var(--slate);margin-bottom:0.7rem">Load an example or paste your own SMILES below:</p>
+    <div class="examples" id="examples"></div>
+
+    <div class="input-row">
+      <textarea id="smiles-input" placeholder="e.g.  CC(=O)Oc1ccccc1C(=O)O   (Aspirin)" rows="2"></textarea>
+      <button class="btn btn-run" onclick="runAnalysis()">▶ Analyse</button>
+    </div>
+
+    <!-- Params -->
+    <div class="params">
+      <div class="param-group">
+        <span class="param-label">Phase I cycles</span>
+        <input type="range" id="p1" min="1" max="3" value="1" oninput="document.getElementById('p1v').textContent=this.value"/>
+        <span class="range-val" id="p1v">1</span>
+      </div>
+      <div class="param-group">
+        <span class="param-label">Phase II cycles</span>
+        <input type="range" id="p2" min="1" max="3" value="1" oninput="document.getElementById('p2v').textContent=this.value"/>
+        <span class="range-val" id="p2v">1</span>
+      </div>
+      <div class="param-group">
+        <span class="param-label">Max metabolites</span>
+        <select id="maxm">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <div class="param-group">
+        <span class="param-label">Top soft spots</span>
+        <select id="topn">
+          <option value="3" selected>3</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Spinner ─────────────────────────────────────────────────────────── -->
+  <div class="spinner-wrap" id="spinner">
+    <div class="spinner"></div>
+    <span id="spinner-msg">Running Ensemble Consensus Engine…</span>
+  </div>
+
+  <!-- ── Error banner ────────────────────────────────────────────────────── -->
+  <div class="banner banner-err" id="err-banner"></div>
+  <div class="banner banner-warn" id="warn-banner"></div>
+
+  <!-- ── Results ─────────────────────────────────────────────────────────── -->
+  <div id="results">
+
+    <!-- Metrics row -->
+    <div class="metrics fade-up" id="metrics-row"></div>
+
+    <!-- Three panels -->
+    <div class="panels">
+
+      <!-- LEFT: Analytics -->
+      <div class="card fade-up">
+        <p class="sec">Analytics</p>
+        <div id="pipeline-stats"></div>
+        <p class="sec" style="margin-top:1.2rem">Properties</p>
+        <div class="prop-grid" id="prop-grid"></div>
+        <div class="smiles-display" id="canon-smiles"></div>
+        <p class="sec" style="margin-top:1.2rem">Soft Spots</p>
+        <div id="spot-list"></div>
+      </div>
+
+      <!-- MIDDLE: Molecule SVG -->
+      <div class="card fade-up-2">
+        <p class="sec">Soft Spot Map</p>
+        <div class="mol-wrap" id="mol-wrap">
+          <div style="color:var(--slate-dim);font-size:0.82rem;padding:3rem 0;text-align:center">
+            Structure will appear here
+          </div>
+        </div>
+        <div style="text-align:center;font-size:0.65rem;color:var(--slate-dim);margin-top:0.3rem">
+          <span id="dl-source-lbl"></span>
+        </div>
+      </div>
+
+      <!-- RIGHT: Metabolic tree -->
+      <div class="card fade-up-3">
+        <p class="sec">Metabolic Tree</p>
+        <div class="filter-tabs" id="filter-tabs">
+          <span class="ftab active" data-filter="all" onclick="filterMets(this)">All</span>
+          <span class="ftab" data-filter="1" onclick="filterMets(this)">Phase I</span>
+          <span class="ftab" data-filter="2" onclick="filterMets(this)">Phase II</span>
+          <span class="ftab" data-filter="consensus" onclick="filterMets(this)">Consensus</span>
+        </div>
+        <div class="tbl-wrap">
+          <table class="met-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>SMILES</th>
+                <th>Prob.</th>
+                <th>Phase</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="met-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /panels -->
+  </div><!-- /results -->
+
+  <footer>
+    MetID · Ensemble Consensus Engine v2.0 · SyGMa · MetaTrans emulator · RDKit · FastAPI<br>
+    Soft spot scores are computational predictions, not validated clinical data.
+  </footer>
+</div><!-- /wrap -->
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+// Replace this URL with your actual Render API URL once deployed
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000'
+  : 'https://metid-api.onrender.com';  // ← UPDATE THIS after Render deploy
+
+const EXAMPLES = {
+  'Aspirin':     ['CC(=O)Oc1ccccc1C(=O)O',           'Analgesic'],
+  'Ibuprofen':   ['CC(C)Cc1ccc(cc1)C(C)C(=O)O',      'NSAID'],
+  'Paracetamol': ['CC(=O)Nc1ccc(O)cc1',               'Analgesic'],
+  'Caffeine':    ['Cn1cnc2c1c(=O)n(c(=O)n2C)C',       'Stimulant'],
+  'Lidocaine':   ['CCN(CC)CC(=O)Nc1c(C)cccc1C',       'Anaesthetic'],
+  'Omeprazole':  ['COc1ccc2[nH]c(nc2c1)Cc1nc2cc(OC)ccc2n1', 'PPI'],
+};
+
+let allMets = [];
+
+// ── Render example pills ──────────────────────────────────────────────────────
+const exWrap = document.getElementById('examples');
+Object.entries(EXAMPLES).forEach(([name, [smi, cls]]) => {
+  const el = document.createElement('span');
+  el.className = 'ex-pill';
+  el.textContent = `${name} (${cls})`;
+  el.onclick = () => {
+    document.getElementById('smiles-input').value = smi;
+  };
+  exWrap.appendChild(el);
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function show(id)  { document.getElementById(id).classList.add('show'); }
+function hide(id)  { document.getElementById(id).classList.remove('show'); }
+function setText(id, t) { document.getElementById(id).textContent = t; }
+function setHTML(id, h) { document.getElementById(id).innerHTML = h; }
+
+function badgeTier(tier) {
+  if (!tier) return '';
+  const t = tier.toLowerCase();
+  if (t.includes('consensus')) return `<span class="badge b-consensus">✦ Consensus</span>`;
+  if (t.includes('rule'))      return `<span class="badge b-rule">◈ Rule-Only</span>`;
+  if (t.includes('dl'))        return `<span class="badge b-dl">◉ DL-Only</span>`;
+  return `<span class="badge b-rule">${tier.slice(0,16)}</span>`;
+}
+function badgePhase(p) {
+  if (p === 1) return `<span class="badge b-p1">P-I</span>`;
+  if (p === 2) return `<span class="badge b-p2">P-II</span>`;
+  return `<span class="badge b-dl">?</span>`;
+}
+
+// ── Filter metabolites table ──────────────────────────────────────────────────
+function filterMets(el) {
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const f = el.dataset.filter;
+  renderMetsTable(f);
+}
+
+function renderMetsTable(filter = 'all') {
+  const tbody = document.getElementById('met-tbody');
+  const rows = allMets.filter(m => {
+    if (filter === 'all') return true;
+    if (filter === 'consensus') return (m.confidence_tier||'').toLowerCase().includes('consensus');
+    return String(m.phase) === String(filter);
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--slate-dim);padding:1.5rem">No metabolites in this category</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((m, i) => {
+    const pct = Math.round((m.probability || 0) * 100);
+    return `
+      <tr>
+        <td style="color:var(--slate-dim)">${i+1}</td>
+        <td class="smiles-cell" title="${m.smiles}">${m.smiles}</td>
+        <td>
+          <div class="prob-bar">
+            <span style="color:var(--emerald);font-size:0.72rem;min-width:40px">${(m.probability||0).toFixed(3)}</span>
+            <div class="prob-track"><div class="prob-fill" style="width:${pct}%"></div></div>
+          </div>
+        </td>
+        <td>${badgePhase(m.phase)}</td>
+        <td>${badgeTier(m.confidence_tier)}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ── Main analysis function ────────────────────────────────────────────────────
+async function runAnalysis() {
+  const smiles = document.getElementById('smiles-input').value.trim();
+  if (!smiles) {
+    document.getElementById('err-banner').textContent = 'Please enter a SMILES string or load an example above.';
+    show('err-banner');
+    return;
+  }
+
+  // Reset UI
+  hide('err-banner'); hide('warn-banner'); hide('results');
+  document.getElementById('spinner-msg').textContent = 'Running Ensemble Consensus Engine…';
+  document.getElementById('spinner').classList.add('active');
+
+  try {
+    // ── Call /predict ────────────────────────────────────────────────────────
+    const res = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        smiles,
+        phase1_cycles:   parseInt(document.getElementById('p1').value),
+        phase2_cycles:   parseInt(document.getElementById('p2').value),
+        max_metabolites: parseInt(document.getElementById('maxm').value),
+        top_soft_spots:  parseInt(document.getElementById('topn').value),
+        include_svg:     false,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.detail || `API error ${res.status}`;
+      throw new Error(Array.isArray(msg) ? msg.map(e=>e.msg||e).join('; ') : String(msg));
+    }
+
+    const data = await res.json();
+
+    // Show non-fatal warnings
+    if (data.warnings && data.warnings.length) {
+      document.getElementById('warn-banner').textContent = data.warnings.join(' | ');
+      show('warn-banner');
+    }
+
+    // ── Call /render-soft-spots ──────────────────────────────────────────────
+    document.getElementById('spinner-msg').textContent = 'Rendering molecule SVG…';
+    const indices = (data.soft_spots || []).map(s => s.atom_index);
+    let svgData = null;
+    try {
+      const rr = await fetch(`${API}/render-soft-spots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smiles: data.parent.canonical_smiles,
+          highlight_indices: indices,
+          width: 500, height: 340,
+          highlight_color: [0.98, 0.25, 0.25, 0.68],
+          show_scores: true,
+        }),
+      });
+      if (rr.ok) svgData = await rr.text();
+    } catch(e) { /* SVG failure is non-fatal */ }
+
+    // ── Populate UI ──────────────────────────────────────────────────────────
+    const p = data.parent;
+    const stats = data.pipeline_stats || {};
+
+    // Metrics
+    setHTML('metrics-row', `
+      <div class="mcard"><div class="mval c-sky">${data.metabolites_total||0}</div><div class="mlbl">Metabolites</div></div>
+      <div class="mcard"><div class="mval c-em">${stats.consensus_count||0}</div><div class="mlbl">Consensus</div></div>
+      <div class="mcard"><div class="mval c-rose">${data.soft_spots_total||0}</div><div class="mlbl">Soft Spots</div></div>
+      <div class="mcard"><div class="mval c-am">${data.elapsed_s ? data.elapsed_s.toFixed(2)+'s' : '—'}</div><div class="mlbl">Elapsed</div></div>
+    `);
+
+    // Pipeline stats
+    setHTML('pipeline-stats', [
+      ['SyGMa (Rule)', stats.sygma_total||0],
+      ['DL Emulator',  stats.dl_total||0],
+      ['Consensus',    stats.consensus_count||0],
+      ['Rule-Only',    stats.rule_only_count||0],
+      ['DL-Only',      stats.dl_only_count||0],
+    ].map(([k,v]) => `<div class="stat-row"><span class="stat-k">${k}</span><span class="stat-v">${v}</span></div>`).join(''));
+
+    // Props
+    setHTML('prop-grid', [
+      ['Formula',    p.molecular_formula||'—'],
+      ['MW',         p.molecular_weight ? p.molecular_weight.toFixed(2)+' Da' : '—'],
+      ['logP',       p.logp !== undefined ? p.logp.toFixed(2) : '—'],
+      ['TPSA',       p.tpsa !== undefined ? p.tpsa.toFixed(1)+' Å²' : '—'],
+      ['HBD/HBA',    `${p.num_hbd||0} / ${p.num_hba||0}`],
+      ['Rings',      p.num_rings||0],
+    ].map(([k,v]) => `<div class="prop-item"><div class="prop-k">${k}</div><div class="prop-v">${v}</div></div>`).join(''));
+
+    // Canonical SMILES
+    setHTML('canon-smiles', p.canonical_smiles || '');
+
+    // Soft spots
+    const spots = data.soft_spots || [];
+    setHTML('spot-list', spots.length ? spots.map((s,i) => {
+      const vi = s.vulnerability_index !== undefined ? s.vulnerability_index : (s.score||0)*100;
+      const pct = Math.min(100, Math.max(0, Math.round(vi)));
+      return `
+        <div class="spot-row">
+          <div class="spot-rank">${i+1}</div>
+          <div class="spot-body">
+            <div class="spot-atom">${s.atom_symbol} <span style="color:var(--slate-dim)">atom ${s.atom_index}</span></div>
+            <div class="spot-rule">${(s.rule_name||'').replace(/_/g,' ')}</div>
+          </div>
+          <div class="spot-vi">
+            <div class="spot-vi-num">${vi.toFixed(1)}%</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        </div>`;
+    }).join('') : `<p style="color:var(--slate-dim);font-size:0.78rem">No soft spots identified.</p>`);
+
+    // SVG
+    if (svgData) {
+      const b64 = btoa(unescape(encodeURIComponent(svgData)));
+      setHTML('mol-wrap', `<div class="mol-frame"><img src="data:image/svg+xml;base64,${b64}" width="480" /></div>`);
+    }
+    setText('dl-source-lbl', `DL source: ${stats.dl_source||'—'}  ·  engine v${data.engine_version||'—'}`);
+
+    // Metabolites table
+    allMets = (data.metabolites || []).sort((a,b) => (b.probability||0)-(a.probability||0));
+    renderMetsTable('all');
+    document.querySelectorAll('.ftab').forEach(t => {
+      t.classList.toggle('active', t.dataset.filter === 'all');
+    });
+
+    // Show results
+    show('results');
+
+  } catch(err) {
+    let msg = err.message || String(err);
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      msg = `Cannot reach the API at <code>${API}</code>.<br>
+             The backend may be starting up (Render free tier sleeps after 15 min — wait 30s and try again),
+             or the API URL may need updating.`;
+    }
+    document.getElementById('err-banner').innerHTML = msg;
+    show('err-banner');
+  } finally {
+    document.getElementById('spinner').classList.remove('active');
+  }
+}
+
+// Allow Enter key in textarea (Shift+Enter = newline)
+document.getElementById('smiles-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAnalysis(); }
+});
+</script>
+</body>
+</html>
