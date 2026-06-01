@@ -16,10 +16,15 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .tbtn{padding:11px 14px;font-size:13px;color:var(--mu);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
 .tbtn:hover{color:var(--tx)}.tbtn.on{color:var(--ac);border-bottom-color:var(--ac)}
 .tpane{display:none;padding:20px 24px}.tpane.on{display:block}
-.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.acard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px;cursor:pointer;transition:border-color .15s,transform .1s}
-.acard:hover{border-color:var(--ac);transform:translateY(-1px)}.acard.sel{border-color:var(--ac);background:rgba(88,166,255,.06)}
-.acard-icon{font-size:19px;margin-bottom:5px}.acard-name{font-size:12px;font-weight:600}.acard-cat{font-size:10px;color:var(--mu);margin-top:2px}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.acard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 13px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;display:flex;flex-direction:column;gap:6px}
+.acard:hover{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}.acard.sel{border-color:var(--ac);background:rgba(88,166,255,.07);box-shadow:0 0 0 1px var(--ac)}
+.acard-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:2px;flex-shrink:0}
+.acard-icon.cat-adme{background:rgba(57,208,216,.12);} .acard-icon.cat-binding{background:rgba(63,185,80,.1);} .acard-icon.cat-cyp{background:rgba(188,140,255,.1);} .acard-icon.cat-safety{background:rgba(248,81,73,.1);} .acard-icon.cat-pk{background:rgba(210,153,34,.1);}
+.acard-name{font-size:12px;font-weight:600;color:var(--tx);line-height:1.3}
+.acard-cat{font-size:10px;color:var(--mu);margin-top:1px;display:flex;align-items:center;gap:4px}
+.acard-cat-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cat-dot-adme{background:var(--cy)} .cat-dot-binding{background:var(--gr)} .cat-dot-cyp{background:var(--pu)} .cat-dot-safety{background:var(--re)} .cat-dot-pk{background:var(--wa)}
 .upzone{border:2px dashed var(--bd);border-radius:var(--r);padding:34px;text-align:center;cursor:pointer;transition:all .15s;margin-top:14px}
 .upzone:hover,.upzone.drag{border-color:var(--ac);background:rgba(88,166,255,.03)}
 .upzone-icon{font-size:26px;margin-bottom:8px}.upzone-txt{color:var(--mu);font-size:13px}.upzone-txt span{color:var(--ac)}
@@ -156,7 +161,7 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         <button class="btn btn-sm btn-sec flt-btn" onclick="flt('binding',this)">Binding</button>
         <button class="btn btn-sm btn-sec flt-btn" onclick="flt('cyp',this)">CYP/UGT</button>
         <button class="btn btn-sm btn-sec flt-btn" onclick="flt('safety',this)">Safety</button>
-        <button class="btn btn-sm btn-sec flt-btn" onclick="flt('pk',this)">PK</button>s)">Safety</button>
+        <button class="btn btn-sm btn-sec flt-btn" onclick="flt('pk',this)">PK</button>
       </div>
       <div class="agrid" id="assay-grid"></div>
     </div>
@@ -198,10 +203,16 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         <span class="sec-tog" id="upload-gen-tog">▼</span>
       </div>
       <div class="sec-body" id="upload-gen">
-        <div class="flex gap-2 fw items-c" style="margin-bottom:10px;">
-          <span style="font-size:11px;color:var(--mu);">Click any cell to edit. Changes apply to all exports.</span>
-          <button class="btn btn-sec btn-sm" onclick="addUploadRow()" style="margin-left:auto;">+ Add Row</button>
-          <button class="btn btn-sec btn-sm" onclick="resetUploadRows()">↺ Reset</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:2px;">Review extracted data before export</div>
+            <div style="font-size:11px;color:var(--mu);">Toggle edit mode to modify any cell, add or remove rows.</div>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+            <button class="btn btn-sec btn-sm" id="edit-mode-btn" onclick="toggleEditMode()" style="border-color:var(--ac);color:var(--ac);">✏️ Edit Mode: OFF</button>
+            <button class="btn btn-sec btn-sm" id="add-row-btn" onclick="addUploadRow()" style="display:none;">+ Add Row</button>
+            <button class="btn btn-sec btn-sm" id="reset-rows-btn" onclick="resetUploadRows()" style="display:none;">↺ Reset</button>
+          </div>
         </div>
         <div class="scroll-x" id="upload-preview-wrap"></div>
         <div class="flex gap-2 fw mt-3">
@@ -359,15 +370,16 @@ function flt(cat,btn){
 function renderAssayGrid(cat='all'){
   const grid=document.getElementById('assay-grid');
   const list=cat==='all'?ASSAYS:ASSAYS.filter(a=>a.cat===cat);
+  const catLabel={adme:'ADME',binding:'Binding',cyp:'CYP / UGT',safety:'Safety',pk:'PK'};
   grid.innerHTML=list.map(a=>`
     <div class="acard ${SEL===a.id?'sel':''}" onclick="selectAssay('${a.id}')">
-      <div class="acard-icon">${a.icon}</div>
+      <div class="acard-icon cat-${a.cat}">${a.icon}</div>
       <div class="acard-name">${a.name}</div>
-      <div class="acard-cat">${a.cat.toUpperCase()} · Pharmaron</div>
+      <div class="acard-cat"><span class="acard-cat-dot cat-dot-${a.cat}"></span>${catLabel[a.cat]||a.cat} · Pharmaron</div>
     </div>`).join('');
 }
 function selectAssay(id){
-  SEL=id;OVR={};PARSED={};UPLOAD_ROWS=[];
+  SEL=id;OVR={};PARSED={};UPLOAD_ROWS=[];EDIT_MODE=false;
   renderAssayGrid(document.querySelector('.flt-btn.btn-pri')?.textContent.toLowerCase()||'all');
   const a=ASSAYS.find(x=>x.id===id);
   const b=document.getElementById('sel-badge');b.textContent=a.name;b.classList.remove('hidden');
@@ -2684,6 +2696,25 @@ function doHepatotox(wb){
 // EDITABLE UPLOAD GRID
 // UPLOAD_ROWS is the live data store — edits mutate it directly
 // ─────────────────────────────────────────────────────────────
+let EDIT_MODE=false;
+
+function toggleEditMode(){
+  EDIT_MODE=!EDIT_MODE;
+  const btn=document.getElementById('edit-mode-btn');
+  const addBtn=document.getElementById('add-row-btn');
+  const resetBtn=document.getElementById('reset-rows-btn');
+  if(btn){
+    btn.textContent='✏️ Edit Mode: '+(EDIT_MODE?'ON':'OFF');
+    btn.style.background=EDIT_MODE?'rgba(88,166,255,.15)':'';
+    btn.style.borderColor=EDIT_MODE?'var(--ac)':'';
+    btn.style.color=EDIT_MODE?'var(--ac)':'';
+  }
+  if(addBtn)addBtn.style.display=EDIT_MODE?'':'none';
+  if(resetBtn)resetBtn.style.display=EDIT_MODE?'':'none';
+  // Re-render table with/without contenteditable
+  renderUploadPreview();
+}
+
 function renderUploadPreview(){
   const tmpl=TEMPLATES[SEL];
   const wrap=document.getElementById('upload-preview-wrap');
@@ -2696,22 +2727,32 @@ function renderUploadPreview(){
 }
 
 function buildEditableTable(wrap,cols,rows){
-  let html='<table class="upload-tbl"><thead><tr><th style="width:24px;"></th>';
+  const editable=EDIT_MODE;
+  let html=`<table class="upload-tbl"><thead><tr>`;
+  if(editable)html+=`<th style="width:28px;"></th>`;
   html+=cols.map(c=>`<th>${c}</th>`).join('');
-  html+='</tr></thead><tbody>';
+  html+=`</tr></thead><tbody>`;
   if(rows.length===0){
-    html+=`<tr><td></td><td colspan="${cols.length}" style="text-align:center;color:var(--mu);padding:14px;">No data — add rows manually or re-parse workbook</td></tr>`;
+    const span=editable?cols.length+1:cols.length;
+    html+=`<tr>${editable?'<td></td>':''}<td colspan="${cols.length}" style="text-align:center;color:var(--mu);padding:16px;">${editable?'No rows — click "+ Add Row" to add one':'No data extracted from workbook'}</td></tr>`;
   } else {
-    rows.forEach((_,ri)=>{
-      html+=`<tr data-ri="${ri}"><td style="padding:2px 4px;"><button class="del-btn" onclick="deleteUploadRow(${ri})" title="Delete row">✕</button></td>`;
+    rows.forEach((row,ri)=>{
+      html+=`<tr data-ri="${ri}">`;
+      if(editable)html+=`<td style="padding:2px 4px;"><button class="del-btn" style="opacity:1;" onclick="deleteUploadRow(${ri})" title="Delete row">✕</button></td>`;
       cols.forEach(col=>{
-        const val=rows[ri][col]!==undefined?String(rows[ri][col]):'';
-        html+=`<td contenteditable="true" data-ri="${ri}" data-col="${escAttr(col)}" onblur="cellEdited(this)" onkeydown="cellKey(event,this)">${escHtml(val)}</td>`;
+        const val=row[col]!==undefined?String(row[col]):'';
+        if(editable){
+          html+=`<td contenteditable="true" data-ri="${ri}" data-col="${escAttr(col)}" onblur="cellEdited(this)" onkeydown="cellKey(event,this)" style="background:rgba(88,166,255,.03);cursor:text;">${escHtml(val)}</td>`;
+        } else {
+          html+=`<td>${escHtml(val)}</td>`;
+        }
       });
-      html+='</tr>';
+      html+=`</tr>`;
     });
   }
-  html+='</tbody></table>';
+  html+=`</tbody></table>`;
+  // Edit mode hint
+  if(editable)html+=`<div style="font-size:11px;color:var(--mu);margin-top:6px;">💡 Click any cell to edit · Tab to move right · Enter to move down · ✕ to delete row</div>`;
   wrap.innerHTML=html;
 }
 
