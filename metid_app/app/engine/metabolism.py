@@ -170,16 +170,32 @@ class PredictedMetabolite:
     confidence_tier  : ConsensusTier tag assigned by the ConsensusEngine.
     dl_score         : DL model confidence [0,1] (None when DL pipeline absent).
     sources          : frozenset of pipeline names that produced this metabolite.
+
+    Mass Spec fields (v2.1)
+    -----------------------
+    exact_mass       : monoisotopic mass of the metabolite (Da).
+    parent_exact_mass: monoisotopic mass of the parent molecule (Da).
+    mass_shift       : exact_mass - parent_exact_mass (Da). Positive = gained atoms,
+                       negative = lost atoms. e.g. +15.9949 for hydroxylation,
+                       -14.0157 for demethylation.
+    transformation_type : human-readable transformation label inferred from mass_shift.
+    vulnerable_atom_idx : soft-spot atom index most associated with this metabolite.
     """
-    smiles:            str
-    probability:       float            # primary score (SyGMa or DL confidence)
-    phase:             int              # 1 or 2 (−1 when DL-only + unknown)
-    reaction_name:     str
-    molecular_weight:  Optional[float]  = None
-    molecular_formula: Optional[str]    = None
-    confidence_tier:   ConsensusTier    = ConsensusTier.UNKNOWN
-    dl_score:          Optional[float]  = None
-    sources:           frozenset        = field(default_factory=frozenset)
+    smiles:              str
+    probability:         float            # primary score (SyGMa or DL confidence)
+    phase:               int              # 1 or 2 (-1 when DL-only + unknown)
+    reaction_name:       str
+    molecular_weight:    Optional[float]  = None
+    molecular_formula:   Optional[str]    = None
+    confidence_tier:     ConsensusTier    = ConsensusTier.UNKNOWN
+    dl_score:            Optional[float]  = None
+    sources:             frozenset        = field(default_factory=frozenset)
+    # Mass spectrometry fields
+    exact_mass:          Optional[float]  = None
+    parent_exact_mass:   Optional[float]  = None
+    mass_shift:          Optional[float]  = None
+    transformation_type: Optional[str]    = None
+    vulnerable_atom_idx: Optional[int]    = None
 
 
 @dataclass(frozen=True)
@@ -304,15 +320,22 @@ class MetabolismResult:
             },
             "metabolites": [
                 {
-                    "smiles":           m.smiles,
-                    "probability":      m.probability,
-                    "phase":            m.phase,
-                    "reaction_name":    m.reaction_name,
-                    "molecular_weight": m.molecular_weight,
-                    "molecular_formula":m.molecular_formula,
-                    "confidence_tier":  m.confidence_tier.value,
-                    "dl_score":         m.dl_score,
-                    "sources":          sorted(m.sources),
+                    "smiles":              m.smiles,
+                    "probability":         m.probability,
+                    "phase":               m.phase,
+                    "reaction_name":       m.reaction_name,
+                    "molecular_weight":    m.molecular_weight,
+                    "molecular_formula":   m.molecular_formula,
+                    "confidence_tier":     m.confidence_tier.value,
+                    "dl_score":            m.dl_score,
+                    "sources":             sorted(m.sources),
+                    # Mass spectrometry fields
+                    "exact_mass":          m.exact_mass,
+                    "parent_exact_mass":   m.parent_exact_mass,
+                    "mass_shift":          m.mass_shift,
+                    "mass_shift_str":      _format_mass_shift(m.mass_shift) if m.mass_shift is not None else None,
+                    "transformation_type": m.transformation_type,
+                    "vulnerable_atom_idx": m.vulnerable_atom_idx,
                 }
                 for m in self.metabolites
             ],
@@ -416,6 +439,91 @@ _LARGEST_FRAGMENT = rdMolStandardize.LargestFragmentChooser()
 
 
 # ==============================================================================
+# Mass spectrometry utilities
+# ==============================================================================
+
+# Known mass shifts with tolerance ±0.002 Da
+# Values are monoisotopic mass changes for common drug metabolic transformations
+_MASS_SHIFT_ANNOTATIONS: List[Tuple[float, str]] = [
+    # Phase I — Oxidation / Reduction
+    (+15.9949, "Mono-hydroxylation (+O)"),
+    (+31.9898, "Di-hydroxylation (+2O)"),
+    (+47.9847, "Tri-hydroxylation (+3O)"),
+    (-2.0157,  "Dehydrogenation (-H2)"),
+    (+2.0157,  "Reduction (+H2)"),
+    (-14.0157, "N/O-Demethylation (-CH2)"),
+    (-28.0313, "N/O-Deethylation (-C2H4)"),
+    (-16.0313, "N/O-Dealkylation (-CH4)"),
+    (+13.9793, "Oxidative desulfurization (+O-S)"),
+    (+15.9949 - 32.0, "Sulfoxide (+O, -S)"),
+    (+15.9949, "S-Oxidation to sulfoxide"),
+    (+31.9898, "S-Oxidation to sulfone"),
+    (-17.0027, "Loss of NH3"),
+    (-18.0106, "Loss of H2O / Dehydration"),
+    (+17.0027, "Hydroxylamine formation"),
+    # Phase II — Conjugation
+    (+176.0321, "Glucuronidation (+C6H8O6)"),
+    (+79.9568,  "Sulfation (+SO3)"),
+    (+42.0106,  "Acetylation (+C2H2O)"),
+    (+305.0682, "Glutathione conjugation"),
+    (+57.0215,  "Cysteine conjugation"),
+    (+119.0589, "N-Acetylcysteine conjugation"),
+    (+162.0528, "Glucose conjugation"),
+    (+14.0157,  "Methylation (+CH2)"),
+    # Other common transformations
+    (+21.9819,  "Chlorination (+HCl-H2)"),
+    (0.0,       "Structural isomerisation (no mass change)"),
+]
+
+_MASS_SHIFT_TOLERANCE = 0.005  # Da — tolerance for matching known shifts
+
+
+def _annotate_mass_shift(mass_shift: float) -> str:
+    """
+    Map a mass shift value to a human-readable transformation label.
+
+    Uses a tolerance of ±0.005 Da to match against the curated table of
+    common drug metabolic transformation mass shifts.
+
+    Parameters
+    ----------
+    mass_shift : float
+        Metabolite exact mass minus parent exact mass (Da).
+
+    Returns
+    -------
+    Human-readable transformation string, or a generic label if unknown.
+    """
+    for ref_shift, label in _MASS_SHIFT_ANNOTATIONS:
+        if abs(mass_shift - ref_shift) <= _MASS_SHIFT_TOLERANCE:
+            return label
+
+    # Generic fallback with sign
+    if mass_shift > 0:
+        return f"Mass gain (+{mass_shift:.4f} Da)"
+    elif mass_shift < 0:
+        return f"Mass loss ({mass_shift:.4f} Da)"
+    else:
+        return "No mass change"
+
+
+def _compute_exact_mass(mol) -> Optional[float]:
+    """Safely compute monoisotopic mass; return None on any RDKit error."""
+    try:
+        from rdkit.Chem import Descriptors
+        return round(Descriptors.ExactMolWt(mol), 4)
+    except Exception:
+        return None
+
+
+def _format_mass_shift(shift: float) -> str:
+    """Return mass shift as a sign-prefixed string to 4 decimal places."""
+    if shift >= 0:
+        return f"+{shift:.4f}"
+    return f"{shift:.4f}"
+
+
+# ==============================================================================
 # Pipeline B — DeepLearningPredictor
 # ==============================================================================
 
@@ -497,12 +605,7 @@ class DeepLearningPredictor:
         self.confidence_threshold = confidence_threshold
         self._rng = random.Random(seed)
         self._model_loaded = False   # True once real weights are attached
-        logger.info(
-            "dl_predictor_init",
-            model=self.MODEL_NAME,
-            top_k=top_k,
-            mode="emulator",
-        )
+        logger.info("dl_predictor_init")
 
     # -- Class-method constructors --------------------------------------------
 
@@ -531,12 +634,7 @@ class DeepLearningPredictor:
             return predictor
         """
         instance = cls(**kwargs)
-        logger.warning(
-            "dl_checkpoint_stub",
-            path=checkpoint_path,
-            msg="Real model weights not loaded — using emulator. "
-                "Implement from_checkpoint() to enable live inference.",
-        )
+        logger.warning("dl_checkpoint_stub")
         return instance
 
     # -- Tokenisation ---------------------------------------------------------
@@ -605,11 +703,7 @@ class DeepLearningPredictor:
             sanitize_flags = Chem.SanitizeFlags.SANITIZE_ALL
             result_flag = Chem.SanitizeMol(mol, sanitize_flags, catchErrors=True)
             if result_flag != Chem.SanitizeFlags.SANITIZE_NONE:
-                logger.debug(
-                    "dl_smiles_sanitize_failed",
-                    smiles=smiles[:80],
-                    flag=str(result_flag),
-                )
+                logger.debug("dl_smiles_sanitize_failed")
                 return None
 
             if mol.GetNumHeavyAtoms() == 0:
@@ -1094,13 +1188,7 @@ class DeepLearningPredictor:
             dl_warnings.append(f"DL attention extraction error: {exc}")
             attention_weights = {}
 
-        logger.info(
-            "dl_predict_complete",
-            model=self.MODEL_NAME,
-            raw_predictions=len(raw_predictions),
-            filtered_predictions=len(predictions),
-            attention_atoms=len(attention_weights),
-        )
+        logger.info("dl_predict_complete")
 
         return predictions, attention_weights, dl_warnings
 
@@ -1196,6 +1284,7 @@ class ConsensusEngine:
                 confidence_tier=ConsensusTier.HIGH,
                 dl_score=dl_s,
                 sources=frozenset({"sygma", "dl"}),
+                exact_mass=base.exact_mass,
             ))
 
         # ── SyGMa-only metabolites ────────────────────────────────────────────
@@ -1211,6 +1300,7 @@ class ConsensusEngine:
                 confidence_tier=ConsensusTier.RULE,
                 dl_score=None,
                 sources=frozenset({"sygma"}),
+                exact_mass=base.exact_mass,
             ))
 
         # ── DL-only metabolites ───────────────────────────────────────────────
@@ -1218,6 +1308,8 @@ class ConsensusEngine:
             dl_s = dl_by_canon[canon]
             mol = self._safe_mol(canon)
             mw, formula = self._compute_descriptors(mol)
+            met_mol = self._safe_mol(canon)
+            dl_exact = _compute_exact_mass(met_mol) if met_mol else None
             merged.append(PredictedMetabolite(
                 smiles=canon,
                 probability=dl_s,
@@ -1228,6 +1320,7 @@ class ConsensusEngine:
                 confidence_tier=ConsensusTier.DL,
                 dl_score=dl_s,
                 sources=frozenset({"dl"}),
+                exact_mass=dl_exact,
             ))
 
         merged.sort(key=lambda m: m.probability, reverse=True)
@@ -1431,12 +1524,7 @@ def _validate_and_normalise(smiles: str) -> Tuple[Chem.Mol, MoleculeMetadata]:
         num_aromatic_rings=rdMolDescriptors.CalcNumAromaticRings(mol),
     )
 
-    logger.debug(
-        "molecule_normalised",
-        canonical=canonical_smiles,
-        mw=metadata.molecular_weight,
-        formula=metadata.molecular_formula,
-    )
+    logger.debug("molecule_normalised")
     return mol, metadata
 
 
@@ -1520,6 +1608,12 @@ def _run_sygma(
         except Exception:
             mw, formula = None, None
 
+        try:
+            from rdkit.Chem import Descriptors as _Desc
+            exact = round(_Desc.ExactMolWt(node_mol), 4)
+        except Exception:
+            exact = None
+
         candidate = PredictedMetabolite(
             smiles=smiles,
             probability=probability,
@@ -1529,6 +1623,7 @@ def _run_sygma(
             molecular_formula=formula,
             confidence_tier=ConsensusTier.RULE,   # upgraded by consensus later
             sources=frozenset({"sygma"}),
+            exact_mass=exact,
         )
 
         if smiles not in seen or probability > seen[smiles].probability:
@@ -1537,12 +1632,7 @@ def _run_sygma(
     results = sorted(seen.values(), key=lambda x: x.probability, reverse=True)
     results = results[:max_metabolites]
 
-    logger.info(
-        "sygma_complete",
-        unique=len(results),
-        p1=sum(1 for r in results if r.phase == 1),
-        p2=sum(1 for r in results if r.phase == 2),
-    )
+    logger.info("sygma_complete")
     return results
 
 
@@ -1767,14 +1857,63 @@ def predict(
             "features or all candidates were excluded by the steric/attention filter."
         )
 
-    # ── Step 5: Assemble result ───────────────────────────────────────────────
+    # ── Step 5: Annotate mass spec fields ────────────────────────────────────
+    parent_exact_mass = parent_meta.exact_mass
+
+    # Build a mapping of atom_index → soft_spot for associating metabolites
+    spot_index_by_rank: Dict[int, int] = {}
+    for rank, spot in enumerate(soft_spots):
+        spot_index_by_rank[rank] = spot.atom_index
+
+    annotated_metabolites: List[PredictedMetabolite] = []
+    for met in merged_metabolites:
+        # Compute metabolite exact mass if not already set
+        met_exact = met.exact_mass
+        if met_exact is None:
+            try:
+                from rdkit.Chem import Descriptors as _Desc
+                met_mol = Chem.MolFromSmiles(met.smiles)
+                if met_mol:
+                    met_exact = round(_Desc.ExactMolWt(met_mol), 4)
+            except Exception:
+                pass
+
+        # Compute mass shift
+        mass_shift = None
+        transformation = None
+        if met_exact is not None and parent_exact_mass is not None:
+            mass_shift = round(met_exact - parent_exact_mass, 4)
+            transformation = _annotate_mass_shift(mass_shift)
+
+        # Associate with top soft spot (rank 0 = highest vulnerability)
+        vuln_atom = spot_index_by_rank.get(0) if spot_index_by_rank else None
+
+        # Rebuild as new frozen dataclass with all mass fields populated
+        annotated_metabolites.append(PredictedMetabolite(
+            smiles=met.smiles,
+            probability=met.probability,
+            phase=met.phase,
+            reaction_name=met.reaction_name,
+            molecular_weight=met.molecular_weight,
+            molecular_formula=met.molecular_formula,
+            confidence_tier=met.confidence_tier,
+            dl_score=met.dl_score,
+            sources=met.sources,
+            exact_mass=met_exact,
+            parent_exact_mass=parent_exact_mass,
+            mass_shift=mass_shift,
+            transformation_type=transformation,
+            vulnerable_atom_idx=vuln_atom,
+        ))
+
+    # ── Step 6: Assemble result ───────────────────────────────────────────────
     elapsed = time.perf_counter() - t_start
     pipeline_stats["dl_source"]  = dl_source
     pipeline_stats["elapsed_s"]  = round(elapsed, 4)
 
     result = MetabolismResult(
         parent=parent_meta,
-        metabolites=merged_metabolites,
+        metabolites=annotated_metabolites,
         soft_spots=soft_spots,
         engine_version=ENGINE_VERSION,
         elapsed_s=elapsed,
@@ -1782,13 +1921,6 @@ def predict(
         pipeline_stats=pipeline_stats,
     )
 
-    logger.info(
-        "ensemble_predict_complete",
-        canonical=parent_meta.canonical_smiles,
-        metabolites_total=len(merged_metabolites),
-        consensus_count=pipeline_stats.get("consensus_count", 0),
-        soft_spots_total=len(soft_spots),
-        elapsed_s=round(elapsed, 3),
-    )
+    logger.info("ensemble_predict_complete")
 
     return result

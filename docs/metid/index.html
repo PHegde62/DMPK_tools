@@ -1,1695 +1,681 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>DMPK QC Pipeline v3</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-:root{--bg:#0d1117;--sf:#161b22;--sf2:#1c2333;--sf3:#21262d;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--ac:#58a6ff;--gr:#3fb950;--wa:#d29922;--re:#f85149;--pu:#bc8cff;--cy:#39d0d8;--r:8px;--mo:'JetBrains Mono','Fira Code',monospace}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;font-size:14px}
-.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:200}
-.hdr-logo{font-family:var(--mo);font-size:17px;font-weight:700;color:var(--ac)}.hdr-sub{color:var(--mu);font-size:12px}
-.badge{background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--mu)}
-.tnav{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 24px;display:flex;overflow-x:auto}
-.tbtn{padding:11px 14px;font-size:13px;color:var(--mu);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
-.tbtn:hover{color:var(--tx)}.tbtn.on{color:var(--ac);border-bottom-color:var(--ac)}
-.tpane{display:none;padding:20px 24px;max-width:1400px;margin:0 auto}.tpane.on{display:block}
-.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.acard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px;cursor:pointer;transition:border-color .15s,transform .1s}
-.acard:hover{border-color:var(--ac);transform:translateY(-1px)}.acard.sel{border-color:var(--ac);background:rgba(88,166,255,.06)}
-.acard-icon{font-size:19px;margin-bottom:5px}.acard-name{font-size:12px;font-weight:600}.acard-cat{font-size:10px;color:var(--mu);margin-top:2px}
-.upzone{border:2px dashed var(--bd);border-radius:var(--r);padding:34px;text-align:center;cursor:pointer;transition:all .15s;margin-top:14px}
-.upzone:hover,.upzone.drag{border-color:var(--ac);background:rgba(88,166,255,.03)}
-.upzone-icon{font-size:26px;margin-bottom:8px}.upzone-txt{color:var(--mu);font-size:13px}.upzone-txt span{color:var(--ac)}
-.sec{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px}
-.sec-hdr{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
-.sec-hdr h3{font-size:13px;font-weight:600}.sec-body{padding:14px 16px}
-.sec-tog{margin-left:auto;color:var(--mu);font-size:11px}
-.qclist{display:flex;flex-direction:column;gap:4px}
-.qci{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:5px;background:var(--sf2);cursor:pointer;border-left:3px solid transparent;transition:background .1s}
-.qci.s-pass{border-left-color:var(--gr)}.qci.s-warn{border-left-color:var(--wa)}.qci.s-fail{border-left-color:var(--re)}.qci.s-na{border-left-color:var(--mu);opacity:.65}
-.qci-ico{font-size:13px;width:16px;text-align:center;flex-shrink:0;margin-top:2px}
-.qci-body{flex:1;min-width:0}
-.qci-lbl{font-size:12px;color:var(--tx);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.qci-val{font-family:var(--mo);font-size:11px;padding:1px 6px;background:var(--sf3);border-radius:3px;white-space:nowrap}
-.qci-val.v-pass{color:var(--gr)}.qci-val.v-warn{color:var(--wa)}.qci-val.v-fail{color:var(--re)}.qci-val.v-info{color:var(--cy)}
-.qci-note{font-size:11px;color:var(--mu);margin-top:2px;font-style:italic}
-.qci-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.stlbl{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap}
-.st-pass{background:rgba(63,185,80,.15);color:var(--gr)}.st-warn{background:rgba(210,153,34,.15);color:var(--wa)}.st-fail{background:rgba(248,81,73,.15);color:var(--re)}.st-na{background:rgba(139,148,158,.12);color:var(--mu)}.st-pend{background:rgba(88,166,255,.1);color:var(--ac)}
-.ovr-btn{background:none;border:1px solid rgba(139,148,158,.4);color:var(--mu);border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;transition:all .15s}
-.ovr-btn:hover{border-color:var(--wa);color:var(--wa)}.ovr-btn.act{border-color:var(--wa);color:var(--wa)}
-.ovr-pnl{background:rgba(210,153,34,.06);border:1px solid rgba(210,153,34,.25);border-radius:5px;padding:8px 10px;margin-top:5px;display:none}
-.ovr-pnl textarea{width:100%;background:var(--sf);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 8px;font-size:11px;margin-top:5px;outline:none;resize:vertical;height:50px}
-.ovr-pnl textarea:focus{border-color:var(--wa)}
-.rhdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:13px 16px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
-.rttl{font-size:14px;font-weight:700}.rmeta{font-size:11px;color:var(--mu)}
-.score-c{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:3px solid;flex-shrink:0}
-.score-pass{border-color:var(--gr);color:var(--gr)}.score-fail{border-color:var(--re);color:var(--re)}.score-warn{border-color:var(--wa);color:var(--wa)}
-.dtbl-wrap{overflow-x:auto}
-.dtbl{width:100%;border-collapse:collapse;font-size:11px}
-.dtbl th{background:var(--sf2);color:var(--mu);padding:6px 9px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bd);white-space:nowrap}
-.dtbl td{padding:6px 9px;border-bottom:1px solid rgba(48,54,61,.4);color:var(--tx);white-space:nowrap}
-.dtbl tr:last-child td{border-bottom:none}.dtbl tr:hover td{background:rgba(255,255,255,.02)}
-.dtbl td.mo{font-family:var(--mo)}.dtbl td.vp{color:var(--gr)}.dtbl td.vf{color:var(--re)}.dtbl td.vw{color:var(--wa)}.dtbl td.vi{color:var(--cy)}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.chip-pass{background:rgba(63,185,80,.15);color:var(--gr);border:1px solid rgba(63,185,80,.3)}
-.chip-fail{background:rgba(248,81,73,.15);color:var(--re);border:1px solid rgba(248,81,73,.3)}
-.chip-warn{background:rgba(210,153,34,.15);color:var(--wa);border:1px solid rgba(210,153,34,.3)}
-.chip-info{background:rgba(139,148,158,.12);color:var(--mu);border:1px solid var(--bd)}
-.chip-new{background:rgba(188,140,255,.15);color:var(--pu);border:1px solid rgba(188,140,255,.3)}
-.btn{padding:7px 13px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s;white-space:nowrap}
-.btn:hover{opacity:.82}.btn-pri{background:var(--ac);color:#0d1117}.btn-sec{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}.btn-grn{background:var(--gr);color:#0d1117}.btn-red{background:rgba(248,81,73,.18);color:var(--re);border:1px solid rgba(248,81,73,.3)}.btn-sm{padding:4px 9px;font-size:11px}
-.inp{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:6px 10px;font-size:12px;outline:none}
-.inp:focus{border-color:var(--ac)}select.inp{cursor:pointer}
-.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin-bottom:16px}
-.stat{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px;text-align:center}
-.stat-n{font-size:24px;font-weight:700;font-family:var(--mo)}.stat-l{font-size:10px;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
-.pbar-w{background:var(--sf2);border-radius:4px;height:5px;overflow:hidden;margin-top:7px}
-.pbar{height:100%;border-radius:4px;background:var(--gr);transition:width .3s}
-.tktbl{width:100%;border-collapse:collapse;font-size:11px}
-.tktbl th{background:var(--sf2);color:var(--mu);padding:6px 7px;text-align:center;font-weight:600;font-size:10px;border:1px solid var(--bd);white-space:nowrap;min-width:48px}
-.tktbl th:first-child{text-align:left;min-width:105px;position:sticky;left:0;background:var(--sf2);z-index:2}
-.tktbl td{padding:5px 7px;border:1px solid rgba(48,54,61,.4);text-align:center;cursor:pointer;font-size:13px}
-.tktbl td:first-child{text-align:left;font-family:var(--mo);font-size:11px;color:var(--cy);position:sticky;left:0;background:var(--sf);z-index:1;cursor:default}
-.tktbl td.qy{background:rgba(63,185,80,.15);color:var(--gr)}.tktbl td.qn{color:rgba(48,54,61,.9)}.tktbl td.qn:hover{background:rgba(88,166,255,.06);color:var(--mu)}
-.cv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:10px}
-.cv-card{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:11px}
-.cv-ttl{font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
-.cv-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;border-bottom:1px solid rgba(48,54,61,.3)}
-.cv-row:last-child{border-bottom:none}.cv-rng{font-family:var(--mo);color:var(--ac);font-size:10px}
-.dz{display:none}.empty{text-align:center;padding:50px 20px;color:var(--mu)}
-.empty-ico{font-size:40px;margin-bottom:12px}.empty-ttl{font-size:14px;color:var(--tx);margin-bottom:6px}
-.flt-bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
-.flex{display:flex}.gap-2{gap:8px}.gap-3{gap:12px}.items-c{align-items:center}.ml-a{margin-left:auto}.flex-1{flex:1}.fw{flex-wrap:wrap}
-.lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:5px}
-.monokey{font-family:var(--mo);color:var(--cy);font-size:11px}
-.hidden{display:none!important}.scroll-x{overflow-x:auto}
-.alert-warn{background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);border-radius:6px;padding:9px 13px;font-size:12px;color:var(--wa);margin-top:7px}
-.alert-fail{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:9px 13px;font-size:12px;color:var(--re);margin-top:7px}
-.alert-pass{background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.25);border-radius:6px;padding:9px 13px;font-size:12px;color:var(--gr);margin-top:7px}
-.upload-preview-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
-.upload-preview-tbl th{background:rgba(88,166,255,.1);color:var(--ac);padding:6px 9px;border:1px solid rgba(88,166,255,.2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
-.upload-preview-tbl td{padding:6px 9px;border:1px solid rgba(48,54,61,.4);font-family:var(--mo);font-size:11px;white-space:nowrap}
-.upload-preview-tbl tr:last-child td{border-bottom:none}
-</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MetID — Metabolite Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #080e1c;
+      --bg-card:  #0d1628;
+      --bg-up:    #162038;
+      --border:   #1e3a5f;
+      --sky:      #38bdf8;
+      --sky-d:    #7dd3fc;
+      --emerald:  #34d399;
+      --amber:    #fbbf24;
+      --rose:     #fb7185;
+      --violet:   #a78bfa;
+      --slate:    #94a3b8;
+      --slate-d:  #64748b;
+      --white:    #f1f5f9;
+      --fd: 'Syne', sans-serif;
+      --fm: 'JetBrains Mono', monospace;
+      --r: 10px; --r-lg: 16px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--fm); background: var(--bg); color: var(--white); min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+      background-size: 48px 48px; pointer-events: none;
+    }
+    .wrap { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+    /* Header */
+    header {
+      padding: 2.5rem 1.5rem 2rem; margin: 0 -1.5rem 2rem;
+      background: linear-gradient(135deg, #060c1a 0%, #0c1a35 50%, #060e1c 100%);
+      border-bottom: 1px solid var(--border); position: relative; overflow: hidden;
+    }
+    header::after {
+      content: ''; position: absolute; top: -40%; right: -5%;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(56,189,248,0.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .header-inner { max-width: 1300px; margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 1; }
+    .logo { font-family: var(--fd); font-size: clamp(2rem,5vw,3rem); font-weight: 800;
+      background: linear-gradient(90deg, var(--sky-d), var(--emerald));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      letter-spacing: -1.5px; line-height: 1; }
+    .logo-sub { font-size: 0.72rem; color: var(--slate-d); text-transform: uppercase; letter-spacing: 0.16em; margin-top: 0.35rem; }
+    .header-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.8rem; }
+    .hbadge { display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(56,189,248,0.07); border: 1px solid rgba(56,189,248,0.2);
+      color: var(--sky); font-size: 0.65rem; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.06em; }
+
+    /* Section label */
+    .sec { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--sky); border-bottom: 1px solid rgba(56,189,248,0.15); padding-bottom: 0.5rem; margin-bottom: 0.9rem; }
+
+    /* Cards */
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 1.2rem 1.4rem; transition: border-color 0.2s, box-shadow 0.2s; }
+    .card:hover { border-color: rgba(56,189,248,0.3); box-shadow: 0 0 20px rgba(56,189,248,0.07); }
+
+    /* Input */
+    textarea { background: var(--bg-up); border: 1px solid var(--border); border-radius: var(--r);
+      color: var(--sky-d); font-family: var(--fm); font-size: 0.9rem; padding: 10px 14px;
+      width: 100%; resize: vertical; min-height: 68px; outline: none; transition: border-color 0.2s; }
+    textarea:focus { border-color: var(--sky); box-shadow: 0 0 0 2px rgba(56,189,248,0.12); }
+    select { background: var(--bg-up); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--white); font-family: var(--fm); font-size: 0.78rem; padding: 5px 8px; outline: none; cursor: pointer; }
+    input[type=range] { width: 100px; accent-color: var(--sky); }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--sky); color: var(--sky-d);
+      font-family: var(--fm); font-size: 0.75rem; font-weight: 500;
+      letter-spacing: 0.07em; text-transform: uppercase; padding: 9px 20px;
+      border-radius: var(--r); cursor: pointer; white-space: nowrap; transition: all 0.18s; }
+    .btn:hover { background: rgba(56,189,248,0.10); box-shadow: 0 0 16px rgba(56,189,248,0.20); transform: translateY(-1px); }
+    .btn-run { background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(52,211,153,0.10));
+      color: var(--white); padding: 10px 28px; font-size: 0.8rem; }
+
+    /* Example pills */
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.2rem; }
+    .ex-pill { background: var(--bg-up); border: 1px solid var(--border); border-radius: 20px;
+      padding: 4px 14px; font-size: 0.68rem; color: var(--slate); cursor: pointer; transition: all 0.15s; }
+    .ex-pill:hover { border-color: var(--sky); color: var(--sky); background: rgba(56,189,248,0.06); }
+
+    /* Params */
+    .params { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 1.2rem; align-items: center; }
+    .param-group { display: flex; flex-direction: column; gap: 4px; }
+    .param-label { font-size: 0.60rem; color: var(--slate-d); text-transform: uppercase; letter-spacing: 0.08em; }
+    .range-val { font-size: 0.72rem; color: var(--sky); }
+
+    /* Spinner */
+    .spinner-wrap { display: none; align-items: center; gap: 12px; padding: 1.5rem; color: var(--slate); font-size: 0.82rem; }
+    .spinner-wrap.active { display: flex; }
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--sky);
+      border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Banners */
+    .banner { display: none; border-radius: 0 var(--r) var(--r) 0; padding: 0.9rem 1.2rem; font-size: 0.82rem; margin-bottom: 1rem; }
+    .banner.show { display: block; }
+    .banner-err { background: rgba(251,113,133,0.08); border-left: 3px solid var(--rose); color: var(--rose); }
+    .banner-warn { background: rgba(251,191,36,0.07); border-left: 3px solid var(--amber); color: var(--amber); }
+
+    /* Results */
+    #results { display: none; }
+    #results.show { display: block; }
+
+    /* Metrics */
+    .metrics { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 1.5rem; }
+    @media(max-width:800px) { .metrics { grid-template-columns: repeat(3,1fr); } }
+    .mcard { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 0.9rem 1rem; text-align: center; transition: all 0.2s; }
+    .mcard:hover { border-color: var(--sky); box-shadow: 0 0 12px rgba(56,189,248,0.12); transform: translateY(-2px); }
+    .mval { font-family: var(--fd); font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .mlbl { font-size: 0.60rem; color: var(--slate-d); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+    .c-sky { color: var(--sky); } .c-em { color: var(--emerald); } .c-am { color: var(--amber); }
+    .c-rose { color: var(--rose); } .c-vio { color: var(--violet); }
+
+    /* Three-panel layout */
+    .panels { display: grid; grid-template-columns: 220px 1fr 1fr; gap: 14px; }
+    @media(max-width:1000px) { .panels { grid-template-columns: 1fr; } }
+
+    /* Left panel */
+    .stat-row { display: flex; justify-content: space-between; padding: 5px 0;
+      border-bottom: 1px solid rgba(30,58,95,0.4); font-size: 0.74rem; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-k { color: var(--slate); } .stat-v { color: var(--white); font-weight: 600; }
+    .prop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .prop-item { background: var(--bg-up); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+    .prop-k { font-size: 0.58rem; color: var(--slate-d); text-transform: uppercase; letter-spacing: 0.06em; }
+    .prop-v { font-size: 0.82rem; font-weight: 600; color: var(--white); }
+    .smiles-pill { background: var(--bg-up); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 6px 10px; font-size: 0.70rem; color: var(--sky-d); word-break: break-all; margin-top: 0.6rem; }
+
+    /* Soft spots */
+    .spot-row { display: flex; align-items: center; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid rgba(30,58,95,0.5); }
+    .spot-row:last-child { border-bottom: none; }
+    .spot-rank { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700;
+      background: rgba(251,113,133,0.12); border: 1px solid rgba(251,113,133,0.3); color: var(--rose); }
+    .spot-body { flex: 1; min-width: 0; }
+    .spot-atom { font-size: 0.80rem; font-weight: 600; }
+    .spot-rule { font-size: 0.65rem; color: var(--slate-d); margin-top: 1px; }
+    .spot-vi { text-align: right; min-width: 55px; }
+    .spot-vi-num { font-size: 0.74rem; font-weight: 700; color: var(--rose); }
+    .bar-track { background: rgba(30,58,95,0.8); border-radius: 3px; height: 4px; margin-top: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--rose), var(--amber)); border-radius: 3px; }
+
+    /* Molecule SVG */
+    .mol-wrap { display: flex; justify-content: center; margin: 0.5rem 0 0.8rem; }
+    .mol-frame { background: #fff; border-radius: var(--r); padding: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px rgba(56,189,248,0.18); }
+    .mol-frame img { display: block; max-width: 100%; }
+
+    /* ── Mass Spec Table ──────────────────────────────────────────────────── */
+    .ms-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.9rem; align-items: center; }
+    .ftab { background: var(--bg-up); border: 1px solid var(--border); border-radius: 20px;
+      padding: 3px 12px; font-size: 0.65rem; color: var(--slate); cursor: pointer; transition: all 0.15s; }
+    .ftab.active, .ftab:hover { border-color: var(--sky); color: var(--sky); background: rgba(56,189,248,0.07); }
+    .sort-select { background: var(--bg-up); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--slate); font-family: var(--fm); font-size: 0.65rem; padding: 3px 8px; }
+
+    .ms-table-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); max-height: 480px; overflow-y: auto; }
+    table.ms-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; min-width: 680px; }
+    table.ms-table th {
+      background: var(--bg-up); color: var(--sky); font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.60rem;
+      padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 1; white-space: nowrap;
+    }
+    table.ms-table th.sortable { cursor: pointer; user-select: none; }
+    table.ms-table th.sortable:hover { color: var(--white); }
+    table.ms-table td { padding: 7px 10px; border-bottom: 1px solid rgba(30,58,95,0.4); color: var(--slate); vertical-align: middle; }
+    table.ms-table tr:hover td { background: rgba(56,189,248,0.03); }
+    table.ms-table tr:last-child td { border-bottom: none; }
+
+    /* Mass shift color tags */
+    .ms-tag { display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 8px;
+      font-family: var(--fm); white-space: nowrap; }
+    .ms-pos-high  { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+    .ms-pos-med   { background: rgba(56,189,248,0.12); color: #38bdf8; border: 1px solid rgba(56,189,248,0.25); }
+    .ms-neg       { background: rgba(251,113,133,0.12); color: #fb7185; border: 1px solid rgba(251,113,133,0.25); }
+    .ms-conj      { background: rgba(167,139,250,0.12); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+    .ms-neutral   { background: rgba(148,163,184,0.10); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+
+    /* Confidence badges */
+    .badge { display: inline-flex; align-items: center; font-size: 0.60rem; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+    .b-con { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); color: var(--emerald); }
+    .b-rule { background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.25); color: var(--sky); }
+    .b-dl  { background: rgba(167,139,250,0.10); border: 1px solid rgba(167,139,250,0.25); color: var(--violet); }
+    .b-p1  { background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); color: var(--sky-d); font-size: 0.58rem; }
+    .b-p2  { background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.25); color: var(--amber); font-size: 0.58rem; }
+
+    .formula-cell { font-family: var(--fm); color: var(--white); font-size: 0.74rem; }
+    .smiles-cell  { font-size: 0.65rem; color: var(--sky-d); max-width: 130px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .smiles-cell:hover { color: var(--white); }
+    .transform-cell { font-size: 0.68rem; color: var(--slate); max-width: 160px; }
+    .atom-cell { font-size: 0.70rem; color: var(--amber); font-weight: 600; text-align: center; }
+    .mass-cell  { font-family: var(--fm); font-size: 0.72rem; color: var(--slate); }
+
+    /* Parent mass bar */
+    .parent-mass-bar {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 0.8rem 1rem; margin-bottom: 0.9rem;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .pmb-label { font-size: 0.60rem; color: var(--slate-d); text-transform: uppercase; letter-spacing: 0.1em; }
+    .pmb-val   { font-family: var(--fd); font-size: 1.1rem; font-weight: 700; color: var(--amber); }
+    .pmb-sep   { color: var(--border); }
+
+    /* Group header rows */
+    .group-header td { background: rgba(56,189,248,0.05); color: var(--sky-d); font-size: 0.65rem;
+      font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 10px;
+      border-bottom: 1px solid var(--border); }
+
+    footer { text-align: center; font-size: 0.65rem; color: var(--slate-d);
+      border-top: 1px solid var(--border); padding: 1.5rem 0 0.5rem; margin-top: 2.5rem; letter-spacing: 0.06em; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--sky); }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up   { animation: fadeUp 0.4s ease both; }
+    .fade-up-2 { animation: fadeUp 0.4s 0.1s ease both; }
+    .fade-up-3 { animation: fadeUp 0.4s 0.2s ease both; }
+  </style>
 </head>
 <body>
-<div class="hdr">
-  <div><div class="hdr-logo">DMPK · QC</div><div class="hdr-sub">Assay Quality Control Pipeline</div></div>
-  <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
-    <span class="badge">⚡ Offline</span>
-    <span class="badge" id="assay-count-badge">14 Assays</span>
-    <span class="badge">v3.0</span>
-  </div>
-</div>
-<div class="tnav">
-  <button class="tbtn on" onclick="switchTab('qc',this)">🔬 QC Workflow</button>
-  <button class="tbtn" onclick="switchTab('tracker',this)">📊 Compound Tracker</button>
-  <button class="tbtn" onclick="switchTab('controls',this)">🎯 Control Values</button>
-  <button class="tbtn" onclick="switchTab('templates',this)">📋 Upload Templates</button>
-</div>
 
-<!-- ========== QC TAB ========== -->
-<div id="tab-qc" class="tpane on">
-
-  <!-- Step 1: Assay Selection -->
-  <div class="sec">
-    <div class="sec-hdr"><span>1️⃣</span><h3>Select Assay Type</h3>
-      <span id="sel-badge" class="chip chip-info hidden" style="margin-left:8px;"></span>
-      <span class="sec-tog" id="step1-tog">▼</span>
-    </div>
-    <div class="sec-body" id="step1-body">
-      <div class="flt-bar">
-        <span class="lbl" style="margin-bottom:0;">Filter:</span>
-        <button class="btn btn-sm btn-sec on-flt" onclick="fltAssays('all',this)">All</button>
-        <button class="btn btn-sm btn-sec" onclick="fltAssays('adme',this)">ADME</button>
-        <button class="btn btn-sm btn-sec" onclick="fltAssays('binding',this)">Binding</button>
-        <button class="btn btn-sm btn-sec" onclick="fltAssays('cyp',this)">CYP/UGT</button>
-        <button class="btn btn-sm btn-sec" onclick="fltAssays('safety',this)">Safety</button>
-      </div>
-      <div class="agrid" id="assay-grid"></div>
+<header>
+  <div class="header-inner">
+    <a href="../" style="color:var(--slate);font-size:0.72rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:0.9rem">← DMPK Tools Hub</a>
+    <div class="logo">MetID</div>
+    <div class="logo-sub">Metabolite Intelligence · Mass Spec Tracking · Ensemble Consensus Engine · v2.1</div>
+    <div class="header-badges">
+      <span class="hbadge">⚗ SyGMa Rules</span>
+      <span class="hbadge">🧠 DL Emulator</span>
+      <span class="hbadge">🔬 RDKit</span>
+      <span class="hbadge">⚡ FastAPI</span>
+      <span class="hbadge">📊 LC-MS Δm/z Tracking</span>
     </div>
   </div>
+</header>
 
-  <!-- Step 2: Upload -->
-  <div class="sec">
-    <div class="sec-hdr"><span>2️⃣</span><h3>Upload CRO Workbook</h3></div>
-    <div class="sec-body">
-      <div class="upzone" id="upzone" onclick="document.getElementById('fi').click()">
-        <div class="upzone-icon">📂</div>
-        <div class="upzone-txt">Drop workbook here or <span>click to browse</span></div>
-        <div class="upzone-txt mt-2" style="font-size:11px;color:var(--mu);">Accepts .xlsx / .xls Pharmaron CRO files</div>
+<div class="wrap">
+
+  <!-- Input card -->
+  <div class="card fade-up" style="margin-bottom:1.2rem">
+    <p class="sec">Parent Molecule SMILES</p>
+    <p style="font-size:0.72rem;color:var(--slate);margin-bottom:0.7rem">Load an example or paste your own SMILES:</p>
+    <div class="examples" id="examples"></div>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <textarea id="smiles-input" placeholder="e.g.  CC(=O)Oc1ccccc1C(=O)O  (Aspirin)" rows="2"></textarea>
+      <button class="btn btn-run" onclick="runAnalysis()">▶ Analyse</button>
+    </div>
+    <div class="params" style="margin-top:0.9rem">
+      <div class="param-group">
+        <span class="param-label">Phase I cycles</span>
+        <input type="range" id="p1" min="1" max="3" value="1" oninput="document.getElementById('p1v').textContent=this.value"/>
+        <span class="range-val" id="p1v">1</span>
       </div>
-      <input type="file" id="fi" class="dz" accept=".xlsx,.xls" onchange="handleFile(event)">
-      <div id="file-info" class="hidden mt-2">
-        <div class="qci s-pass" style="cursor:default;">
-          <span class="qci-ico">📄</span>
-          <div class="qci-body"><div class="qci-lbl" id="fname"></div></div>
-          <span class="chip chip-info" id="fsize"></span>
-          <button class="btn btn-sm btn-red" onclick="clearFile()">✕ Clear</button>
+      <div class="param-group">
+        <span class="param-label">Phase II cycles</span>
+        <input type="range" id="p2" min="1" max="3" value="1" oninput="document.getElementById('p2v').textContent=this.value"/>
+        <span class="range-val" id="p2v">1</span>
+      </div>
+      <div class="param-group">
+        <span class="param-label">Max metabolites</span>
+        <select id="maxm"><option>25</option><option selected>50</option><option>100</option></select>
+      </div>
+      <div class="param-group">
+        <span class="param-label">Top soft spots</span>
+        <select id="topn"><option selected>3</option><option>5</option><option>10</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="spinner-wrap" id="spinner"><div class="spinner"></div><span id="spinner-msg">Running Ensemble Consensus Engine…</span></div>
+  <div class="banner banner-err" id="err-banner"></div>
+  <div class="banner banner-warn" id="warn-banner"></div>
+
+  <div id="results">
+
+    <!-- Metrics -->
+    <div class="metrics fade-up" id="metrics-row"></div>
+
+    <!-- Three panels -->
+    <div class="panels">
+
+      <!-- LEFT: Analytics -->
+      <div class="card fade-up" style="min-width:0">
+        <p class="sec">Pipeline</p>
+        <div id="pipeline-stats"></div>
+        <p class="sec" style="margin-top:1rem">Properties</p>
+        <div class="prop-grid" id="prop-grid"></div>
+        <div class="smiles-pill" id="canon-smiles"></div>
+        <p class="sec" style="margin-top:1rem">Soft Spots</p>
+        <div id="spot-list"></div>
+      </div>
+
+      <!-- MIDDLE: Molecule SVG -->
+      <div class="card fade-up-2" style="min-width:0">
+        <p class="sec">Soft Spot Map</p>
+        <div class="mol-wrap" id="mol-wrap">
+          <div style="color:var(--slate-d);font-size:0.82rem;padding:3rem 0;text-align:center">Structure renders here</div>
+        </div>
+        <div style="text-align:center;font-size:0.65rem;color:var(--slate-d);margin-top:0.3rem" id="dl-source-lbl"></div>
+      </div>
+
+      <!-- RIGHT: Mass Spec Table -->
+      <div class="card fade-up-3" style="min-width:0">
+        <p class="sec">Metabolic Tree — LC-MS Mass Tracking</p>
+
+        <!-- Parent mass bar -->
+        <div class="parent-mass-bar" id="parent-mass-bar" style="display:none">
+          <div><div class="pmb-label">Parent [M]</div><div class="pmb-val" id="pmb-exact">—</div></div>
+          <div class="pmb-sep">|</div>
+          <div><div class="pmb-label">Formula</div><div class="pmb-val" id="pmb-formula" style="font-size:0.85rem;color:var(--sky-d)">—</div></div>
+          <div class="pmb-sep">|</div>
+          <div><div class="pmb-label">MW (avg)</div><div class="pmb-val" id="pmb-mw" style="font-size:0.85rem;color:var(--slate)">—</div></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="ms-controls">
+          <span class="ftab active" data-filter="all"   onclick="filterMets(this)">All</span>
+          <span class="ftab" data-filter="1"            onclick="filterMets(this)">Phase I</span>
+          <span class="ftab" data-filter="2"            onclick="filterMets(this)">Phase II</span>
+          <span class="ftab" data-filter="consensus"    onclick="filterMets(this)">Consensus</span>
+          <span style="margin-left:auto;font-size:0.62rem;color:var(--slate-d)">Sort:</span>
+          <select class="sort-select" id="sort-select" onchange="renderMetsTable()">
+            <option value="mass_shift">Δ m/z (grouped)</option>
+            <option value="probability">Probability ↓</option>
+            <option value="exact_mass">Exact Mass ↑</option>
+            <option value="phase">Phase</option>
+          </select>
+        </div>
+
+        <div class="ms-table-wrap">
+          <table class="ms-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Formula</th>
+                <th>Formula Mass (Da)</th>
+                <th class="sortable" onclick="setSortAndRender('mass_shift')">Δ m/z</th>
+                <th>Metabolic Transformation</th>
+                <th>Soft Spot Atom</th>
+                <th>Phase</th>
+                <th class="sortable" onclick="setSortAndRender('probability')">Prob.</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="met-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:0.8rem;align-items:center">
+          <span style="font-size:0.60rem;color:var(--slate-d)">Δm/z legend:</span>
+          <span class="ms-tag ms-pos-high">+O hydroxylation</span>
+          <span class="ms-tag ms-pos-med">+CH2 methylation</span>
+          <span class="ms-tag ms-neg">−CH2 demethylation</span>
+          <span class="ms-tag ms-conj">conjugation</span>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Results -->
-  <div id="results-wrap" class="hidden">
+    </div><!-- /panels -->
 
-    <!-- Summary header -->
-    <div class="rhdr">
-      <div class="score-c" id="score-c">—</div>
-      <div><div class="rttl" id="r-title">QC Results</div><div class="rmeta" id="r-meta"></div></div>
-      <div id="r-chips" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;"></div>
-    </div>
+  </div><!-- /results -->
 
-    <!-- Parsed data stats -->
-    <div id="parse-stats" class="sec hidden">
-      <div class="sec-hdr" onclick="toggleSec('parse-data')"><span>📊</span><h3>Parsed Data Summary</h3><span class="sec-tog" id="parse-data-tog">▼</span></div>
-      <div class="sec-body" id="parse-data">
-        <div id="parse-content"></div>
-      </div>
-    </div>
-
-    <!-- QC Sections -->
-    <div id="qc-sections"></div>
-
-    <!-- Override summary -->
-    <div id="override-summary" class="hidden sec">
-      <div class="sec-hdr" onclick="toggleSec('ovr-body')"><span>✏️</span><h3>Manual Overrides</h3><span class="sec-tog" id="ovr-body-tog">▼</span></div>
-      <div class="sec-body" id="ovr-body">
-        <div id="ovr-list"></div>
-      </div>
-    </div>
-
-    <!-- Upload Sheet Generator -->
-    <div class="sec">
-      <div class="sec-hdr" onclick="toggleSec('upload-gen')"><span>⬆️</span><h3>Generate Upload Sheet</h3>
-        <span class="chip chip-info" id="upload-row-count" style="margin-left:8px;"></span>
-        <span class="sec-tog" id="upload-gen-tog">▼</span>
-      </div>
-      <div class="sec-body" id="upload-gen">
-        <div id="upload-preview-wrap"></div>
-        <div class="flex gap-2 fw mt-3">
-          <button class="btn btn-grn" onclick="downloadWithUpload()">⬇️ Download Original + Upload Sheet</button>
-          <button class="btn btn-sec" onclick="downloadUploadOnly()">⬇️ Upload Sheet Only</button>
-          <button class="btn btn-sec" onclick="copyUploadTSV()">📋 Copy as TSV</button>
-        </div>
-        <div id="upload-info" class="mt-2" style="font-size:11px;color:var(--mu);"></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Empty state -->
-  <div id="empty-state" class="empty">
-    <div class="empty-ico">🧪</div>
-    <div class="empty-ttl">Select an assay, then upload a workbook</div>
-    <div>Automated QC checks • Control verification • Upload sheet export</div>
-  </div>
-
-</div>
-
-<!-- ========== TRACKER TAB ========== -->
-<div id="tab-tracker" class="tpane">
-  <div class="stats" id="tk-stats"></div>
-  <div class="flex gap-2 fw items-c" style="margin-bottom:14px;">
-    <input class="inp" id="tk-inp" placeholder="Compound ID (e.g. GEN-0001)" style="width:200px;" onkeydown="if(event.key==='Enter')addCpd()">
-    <button class="btn btn-pri btn-sm" onclick="addCpd()">+ Add</button>
-    <input class="inp" id="tk-bulk" placeholder="Paste comma-separated IDs" style="width:220px;">
-    <button class="btn btn-sec btn-sm" onclick="bulkAdd()">+ Bulk Add</button>
-    <button class="btn btn-sec btn-sm ml-a" onclick="exportTracker()">⬇️ Export</button>
-    <button class="btn btn-red btn-sm" onclick="clearTracker()">🗑️ Clear</button>
-  </div>
-  <div class="scroll-x">
-    <table class="tktbl" id="tk-tbl"><thead id="tk-head"></thead><tbody id="tk-body"></tbody></table>
-  </div>
-  <div id="tk-empty" class="empty hidden">
-    <div class="empty-ico">📊</div>
-    <div class="empty-ttl">No compounds tracked</div>
-    <div>Add compound IDs above to track QC status across all assays</div>
-  </div>
-</div>
-
-<!-- ========== CONTROLS TAB ========== -->
-<div id="tab-controls" class="tpane">
-  <div class="lbl">Assay Control Acceptance Ranges</div>
-  <div style="font-size:12px;color:var(--mu);margin-bottom:16px;">Reference values used in automated QC flagging</div>
-  <div class="cv-grid" id="cv-grid"></div>
-</div>
-
-<!-- ========== TEMPLATES TAB ========== -->
-<div id="tab-templates" class="tpane">
-  <div class="lbl">CDD Upload Templates</div>
-  <div style="font-size:12px;color:var(--mu);margin-bottom:14px;">Column headers auto-appended as "Upload" sheet to CRO workbooks</div>
-  <input class="inp" id="tmpl-search" placeholder="Search…" oninput="renderTemplates(this.value)" style="width:200px;margin-bottom:14px;">
-  <div id="tmpl-list"></div>
+  <footer>MetID v2.1 · Ensemble Consensus Engine · SyGMa · MetaTrans emulator · RDKit · FastAPI<br>
+  Mass spec values are computational predictions — verify against authentic reference standards.</footer>
 </div>
 
 <script>
-// ============================================================
-// ASSAY REGISTRY
-// ============================================================
-const ASSAYS = [
-  {id:'solubility',    name:'Kinetic Solubility',      icon:'💊', cat:'adme',    cro:'Pharmaron'},
-  {id:'mic_stability', name:'Microsomal Stability',     icon:'🧫', cat:'adme',    cro:'Pharmaron'},
-  {id:'hep_stability', name:'Hepatocyte Stability',     icon:'🔬', cat:'adme',    cro:'Pharmaron'},
-  {id:'plasma_stab',   name:'Plasma Stability',         icon:'💧', cat:'adme',    cro:'Genesis/Pharmaron'},
-  {id:'logd',          name:'LogD',                     icon:'📐', cat:'adme',    cro:'Pharmaron'},
-  {id:'permeability',  name:'Permeability (MDCKII)',    icon:'🚧', cat:'adme',    cro:'Pharmaron'},
-  {id:'ppb',           name:'PPB (RED)',                icon:'🩸', cat:'binding', cro:'Pharmaron'},
-  {id:'ppb_uc',        name:'PPB (Ultracentrifugation)',icon:'🔩', cat:'binding', cro:'Pharmaron', isNew:true},
-  {id:'hep_binding',   name:'Hepatocyte Binding',       icon:'🔵', cat:'binding', cro:'Pharmaron'},
-  {id:'mic_binding',   name:'Microsome Binding',        icon:'⚪', cat:'binding', cro:'Pharmaron', isNew:true},
-  {id:'blood_part',    name:'Blood Partitioning',       icon:'🩺', cat:'binding', cro:'Pharmaron', isNew:true},
-  {id:'cyp_screen',    name:'CYP Inhibition Screening', icon:'⚗️', cat:'cyp',     cro:'Pharmaron', isNew:true},
-  {id:'cyp_ic50',      name:'CYP IC50',                 icon:'⚗️', cat:'cyp',     cro:'Pharmaron', isNew:true},
-  {id:'cyp_tdi',       name:'CYP TDI',                  icon:'⚗️', cat:'cyp',     cro:'Pharmaron', isNew:true},
-  {id:'ugt',           name:'UGT Inhibition',           icon:'🧬', cat:'cyp',     cro:'Pharmaron', isNew:true},
-  {id:'herg',          name:'hERG',                     icon:'❤️', cat:'safety',  cro:'Pharmaron', isNew:true},
-  {id:'pxr',           name:'PXR Activation',           icon:'🧪', cat:'safety',  cro:'Pharmaron', isNew:true},
-  {id:'phototox',      name:'Phototoxicity',            icon:'☀️', cat:'safety',  cro:'Pharmaron', isNew:true},
-  {id:'hepatotox',     name:'Hepatotoxicity',           icon:'🫀', cat:'safety',  cro:'Pharmaron', isNew:true},
-];
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000'
+  : 'https://metid-app.onrender.com';
 
-// ============================================================
-// UPLOAD TEMPLATES - exact column headers from PC-006
-// ============================================================
-const TEMPLATES = {
-  solubility:    {cdd:'Kinetic Solubility',         cols:['Compound_ID','batch_id','Solubility (μM)','CRO','Comment']},
-  mic_stability: {cdd:'[Species] Liver Microsome',  cols:['Compound_ID','batch_id','Species','in vitro t1/2 (min)','in vitro CLint (μL/min/mg)','Scale-up CLint (mL/min/Kg)','Predicted Hepatic CLH (mL/min/kg)','Hepatic Extraction Ratio (ER)','Remaining Percentage (%) No cofactor','Cofactor','CRO']},
-  hep_stability: {cdd:'[Species] Liver Hepatocyte', cols:['Compound_ID','batch_id','Species','in vitro t1/2 (min)','in vitro CLint (μL/min/10^6 cells)','Scale-up CLint (mL/min/Kg)','Predicted Hepatic CLH (mL/min/kg)','Hepatic Extraction Ratio (ER)','CRO']},
-  plasma_stab:   {cdd:'Plasma Stability',           cols:['Compound_ID','batch_id','Species','in vitro t1/2 (min)','% Remaining at 240 min','CRO','Comment']},
-  logd:          {cdd:'LogD',                       cols:['Compound_ID','batch_id','LogD','CRO','Comment']},
-  permeability:  {cdd:'Permeability',               cols:['Compound_ID','batch_id','Papp (A-B) (10^-6 cm/s)','Papp (B-A) (10^-6 cm/s)','Efflux Ratio','Recovery (%) A-B','Recovery (%) B-A','Condition','CRO']},
-  ppb:           {cdd:'[Species] PPB',              cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Recovery','% Remaining','Condition','CRO']},
-  ppb_uc:        {cdd:'[Species] PPB UC',           cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Remaining at 0.5 hr','% Remaining at 3.5 hr','Condition','CRO']},
-  hep_binding:   {cdd:'[Species] Hepatocyte Binding',cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Recovery','% Remaining','Condition','CRO']},
-  mic_binding:   {cdd:'[Species] Microsome Binding',cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Recovery','% Remaining','Condition','CRO']},
-  blood_part:    {cdd:'Blood Partitioning',         cols:['Compound_ID','batch_id','Species','Blood to plasma ratio (Kb/p)','CRO']},
-  cyp_screen:    {cdd:'CYP IC50',                   cols:['Compound_ID','batch_id','CYP','% Inhibition','Condition','CRO']},
-  cyp_ic50:      {cdd:'CYP IC50',                   cols:['Compound_ID','batch_id','CYP','IC50 (μM)','CRO']},
-  cyp_tdi:       {cdd:'CYP TDI',                    cols:['Compound_ID','batch_id','CYP','IC50 (0 min Pre-Incubation) (μM)','IC50 (30 min Pre-Incubation without NADPH) (μM)','IC50 (30 min Pre-Incubation with NADPH) (μM)','% Inhibition (0 min pre-incubation @ 30μM)','% Inhibition (30 min pre-incubation without NADPH @ 30μM)','% Inhibition (30 min pre-incubation with NADPH @ 30μM)','CRO']},
-  ugt:           {cdd:'UGT Inhibition IC50',        cols:['Compound_ID','batch_id','Enzyme','IC50 (μM)','CRO','Comment']},
-  herg:          {cdd:'hERG',                       cols:['Compound_ID','batch_id','hERG IC50 [μM]','CRO']},
-  pxr:           {cdd:'PXR Activation',             cols:['Compound_ID','batch_id','Mean Fold Induction at 1 µM','Mean Fold Induction at 10 µM','% Viability at 1 µM','% Viability at 10 µM','% of Control at 1 µM','% of Control at 10 µM','Comment','CRO']},
-  phototox:      {cdd:'Phototoxicity',              cols:['Compound_ID','batch_id','IC50 -Irr (μg/mL)','IC50 +Irr (μg/mL)','PIF','MPE','CRO','Comment']},
-  hepatotox:     {cdd:'Hepatotoxicity',             cols:['Compound_ID','batch_id','Species','IC50 (μM)','% control activity at highest concentration','CRO','Comment']},
+const EXAMPLES = {
+  'Aspirin':     ['CC(=O)Oc1ccccc1C(=O)O',             'Analgesic'],
+  'Ibuprofen':   ['CC(C)Cc1ccc(cc1)C(C)C(=O)O',        'NSAID'],
+  'Paracetamol': ['CC(=O)Nc1ccc(O)cc1',                 'Analgesic'],
+  'Caffeine':    ['Cn1cnc2c1c(=O)n(c(=O)n2C)C',         'Stimulant'],
+  'Lidocaine':   ['CCN(CC)CC(=O)Nc1c(C)cccc1C',         'Anaesthetic'],
+  'Omeprazole':  ['COc1ccc2[nH]c(nc2c1)Cc1nc2cc(OC)ccc2n1','PPI'],
 };
 
-// ============================================================
-// STATE
-// ============================================================
-let SEL = null; // selected assay id
-let WB = null;  // parsed workbook
-let FNAME = '';
-let PARSED = {}; // parsed data per assay
-let QC_STATE = {}; // {itemKey: {status, override, reason}}
-let UPLOAD_ROWS = []; // rows to put in upload sheet
-let TRACKER = JSON.parse(localStorage.getItem('dmpk_tk_v3') || '{"cpds":[],"st":{}}');
+let allMets = [];
+let activeFilter = 'all';
 
-// ============================================================
-// INIT
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  renderAssayGrid();
-  renderTracker();
-  renderControlsTab();
-  renderTemplates();
-  setupDrop();
-  document.getElementById('assay-count-badge').textContent = ASSAYS.length + ' Assays';
+// Render example pills
+const exWrap = document.getElementById('examples');
+Object.entries(EXAMPLES).forEach(([name,[smi,cls]]) => {
+  const el = document.createElement('span');
+  el.className = 'ex-pill';
+  el.textContent = `${name} (${cls})`;
+  el.onclick = () => { document.getElementById('smiles-input').value = smi; };
+  exWrap.appendChild(el);
 });
 
-// ============================================================
-// TAB SWITCHING
-// ============================================================
-function switchTab(id, btn) {
-  document.querySelectorAll('.tpane').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
-  document.getElementById('tab-' + id).classList.add('on');
-  if (btn) btn.classList.add('on');
+function show(id)   { document.getElementById(id).classList.add('show'); }
+function hide(id)   { document.getElementById(id).classList.remove('show'); }
+function setHTML(id,h){ document.getElementById(id).innerHTML = h; }
+function setText(id,t){ document.getElementById(id).textContent = t; }
+
+// ── Mass shift colour classification ─────────────────────────────────────────
+function msTagClass(shift) {
+  if (shift === null || shift === undefined) return 'ms-neutral';
+  const s = parseFloat(shift);
+  if (Math.abs(s) < 0.001)       return 'ms-neutral';           // no change
+  if (s > 100)                   return 'ms-conj';              // conjugation (large)
+  if (s > 0 && s <= 20)          return s > 13 ? 'ms-pos-high' : 'ms-pos-med'; // small oxidation / alkylation
+  if (s < 0)                     return 'ms-neg';               // demethylation / dealkylation
+  if (s > 20)                    return 'ms-conj';              // larger conjugation
+  return 'ms-neutral';
 }
 
-// ============================================================
-// ASSAY GRID
-// ============================================================
-function renderAssayGrid(cat = 'all') {
-  const grid = document.getElementById('assay-grid');
-  const list = cat === 'all' ? ASSAYS : ASSAYS.filter(a => a.cat === cat);
-  grid.innerHTML = list.map(a => `
-    <div class="acard ${SEL === a.id ? 'sel' : ''}" onclick="selectAssay('${a.id}')">
-      <div class="acard-icon">${a.icon}</div>
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
-        <div class="acard-name">${a.name}</div>
-        ${a.isNew ? '<span class="chip chip-new" style="font-size:9px;padding:1px 5px;">NEW</span>' : ''}
-      </div>
-      <div class="acard-cat">${a.cat.toUpperCase()} · ${a.cro}</div>
-    </div>`).join('');
-}
-
-function fltAssays(cat, btn) {
-  document.querySelectorAll('.on-flt').forEach(b => { b.classList.remove('on-flt'); b.classList.remove('btn-pri'); b.classList.add('btn-sec'); });
-  btn.classList.add('on-flt', 'btn-pri'); btn.classList.remove('btn-sec');
-  renderAssayGrid(cat);
-}
-
-function selectAssay(id) {
-  SEL = id;
-  QC_STATE = {};
-  PARSED = {};
-  UPLOAD_ROWS = [];
-  renderAssayGrid(document.querySelector('.on-flt')?.dataset?.cat || 'all');
-  const a = ASSAYS.find(x => x.id === id);
-  const b = document.getElementById('sel-badge');
-  b.textContent = a.name; b.classList.remove('hidden');
-  document.getElementById('results-wrap').classList.add('hidden');
-  document.getElementById('empty-state').classList.add('hidden');
-  if (WB) runQC();
-}
-
-// ============================================================
-// FILE HANDLING
-// ============================================================
-function setupDrop() {
-  const z = document.getElementById('upzone');
-  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('drag'); });
-  z.addEventListener('dragleave', () => z.classList.remove('drag'));
-  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('drag'); processFile(e.dataTransfer.files[0]); });
-}
-
-function handleFile(e) { processFile(e.target.files[0]); }
-
-function clearFile() {
-  WB = null; FNAME = '';
-  document.getElementById('file-info').classList.add('hidden');
-  document.getElementById('results-wrap').classList.add('hidden');
-  document.getElementById('empty-state').classList.remove('hidden');
-  document.getElementById('fi').value = '';
-}
-
-function processFile(file) {
-  if (!file) return;
-  if (!SEL) { toast('Please select an assay type first', 'warn'); return; }
-  FNAME = file.name;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      WB = XLSX.read(e.target.result, { type:'binary', cellDates:true });
-      document.getElementById('fname').textContent = file.name;
-      document.getElementById('fsize').textContent = (file.size / 1024).toFixed(1) + ' KB · ' + WB.SheetNames.length + ' sheets';
-      document.getElementById('file-info').classList.remove('hidden');
-      document.getElementById('empty-state').classList.add('hidden');
-      runQC();
-    } catch(err) { toast('Error: ' + err.message, 'fail'); }
-  };
-  reader.readAsBinaryString(file);
-}
-
-// ============================================================
-// QC ENGINE — dispatcher
-// ============================================================
-function runQC() {
-  if (!SEL || !WB) return;
-  QC_STATE = {};
-  PARSED = {};
-  UPLOAD_ROWS = [];
-  const a = ASSAYS.find(x => x.id === SEL);
-
-  // Parse workbook for this assay
-  try { PARSED = parseAssay(SEL, WB); }
-  catch(e) { PARSED = { error: e.message }; }
-
-  // Render results
-  document.getElementById('results-wrap').classList.remove('hidden');
-  document.getElementById('r-title').textContent = a.name + ' — QC Review';
-  document.getElementById('r-meta').textContent = 'File: ' + FNAME + ' · Sheets: ' + WB.SheetNames.join(', ');
-
-  // Build QC sections
-  const sections = buildQCSections(SEL, PARSED);
-  renderQCSections(sections);
-
-  // Build upload rows
-  UPLOAD_ROWS = buildUploadRows(SEL, PARSED);
-  renderUploadPreview();
-  updateScore();
-}
-
-// ============================================================
-// ASSAY PARSERS
-// ============================================================
-function sheetRows(wb, name, maxR=200) {
-  const matches = wb.SheetNames.filter(s => s.toLowerCase().includes(name.toLowerCase()));
-  if (!matches.length) return null;
-  return XLSX.utils.sheet_to_json(wb.Sheets[matches[0]], {header:1, defval:''});
-}
-function sheetJson(wb, name) {
-  const matches = wb.SheetNames.filter(s => s.toLowerCase().includes(name.toLowerCase()));
-  if (!matches.length) return [];
-  return XLSX.utils.sheet_to_json(wb.Sheets[matches[0]], {defval:''});
-}
-function findCell(rows, keyword) {
-  for (let r of rows) for (let c of r) if (String(c).toLowerCase().includes(keyword.toLowerCase())) return String(c);
-  return null;
-}
-function numVal(v) {
-  if (v === '' || v === null || v === undefined) return null;
-  const n = parseFloat(String(v).replace(/[^0-9.\-eE]/g,''));
-  return isNaN(n) ? null : n;
-}
-
-function parseAssay(id, wb) {
-  switch(id) {
-    case 'plasma_stab':   return parsePlasmaStab(wb);
-    case 'ppb_uc':        return parsePPBUC(wb);
-    case 'mic_binding':   return parseMicBinding(wb);
-    case 'blood_part':    return parseBloodPart(wb);
-    case 'cyp_screen':    return parseCYPScreen(wb);
-    case 'cyp_ic50':      return parseCYPIC50(wb);
-    case 'cyp_tdi':       return parseCYPTDI(wb);
-    case 'ugt':           return parseUGT(wb);
-    case 'herg':          return parseHERG(wb);
-    case 'pxr':           return parsePXR(wb);
-    case 'phototox':      return parsePhototox(wb);
-    case 'hepatotox':     return parseHepatotox(wb);
-    default:              return parseGeneric(wb, id);
+function msTagHTML(shift, shiftStr) {
+  if (shift === null || shift === undefined || shiftStr === null) {
+    return '<span class="ms-tag ms-neutral">—</span>';
   }
+  const cls = msTagClass(shift);
+  return `<span class="ms-tag ${cls}">${shiftStr}</span>`;
 }
 
-function parsePlasmaStab(wb) {
-  // Genesis format: Upload sheet has the clean data
-  const upload = sheetRows(wb, 'Upload');
-  const results = sheetRows(wb, 'Results') || sheetRows(wb, 'Result');
-  const rawData = sheetRows(wb, 'Raw Data');
-  let compounds = [];
-  // Try Upload sheet first
-  if (upload && upload.length > 1) {
-    const hdr = upload[0];
-    for (let i = 1; i < upload.length; i++) {
-      const r = upload[i];
-      if (!r[0]) continue;
-      const obj = {};
-      hdr.forEach((h,j) => { obj[String(h).trim()] = r[j] !== undefined ? r[j] : ''; });
-      compounds.push(obj);
-    }
-  }
-  // Extract IS info from raw data
-  let isName = '', isCv = null;
-  if (rawData) {
-    for (let r of rawData) {
-      const line = r.join(' ');
-      if (line.includes('Peak Name:') && !line.includes('64740') && !line.includes('0064') && line.length < 100) isName = line.replace('Peak Name:', '').trim();
-      const idx = r.findIndex(c => String(c).includes('IS %CV'));
-      if (idx >= 0) isCv = numVal(r[idx+1]);
-    }
-  }
-  // Extract controls from Results sheet
-  let controls = [];
-  if (results) {
-    for (let r of results) {
-      const txt = r.join(' ');
-      if (txt.includes('Slope') && numVal(r[9]) !== null) {
-        controls.push({ label: String(r[0]||''), species: String(r[3]||''), slope: numVal(r[9]), t12: numVal(r[10]) });
-      }
-    }
-  }
-  return { compounds, isName, isCv, controls, rawSheets: wb.SheetNames };
+function badgeTier(tier) {
+  if (!tier) return '';
+  const t = tier.toLowerCase();
+  if (t.includes('consensus')) return '<span class="badge b-con">✦ Consensus</span>';
+  if (t.includes('rule'))      return '<span class="badge b-rule">◈ Rule</span>';
+  if (t.includes('dl'))        return '<span class="badge b-dl">◉ DL</span>';
+  return `<span class="badge b-rule">${tier.slice(0,14)}</span>`;
 }
 
-function parsePPBUC(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    let curSpecies = '';
-    for (let i = 0; i < summ.length; i++) {
-      const r = summ[i];
-      const line = r.slice(0,10).join('\t');
-      if (line.includes('Protein Binding Results')) {
-        const m = line.match(/in\s+(\w+)\s+Plasma/i);
-        if (m) curSpecies = m[1];
-      }
-      // Data rows: Compound_ID, Batch, Species, %Bound, %Unbound, %Stab0.5, %Stab3.5, Condition, CRO
-      if (String(r[0]).includes('-') && String(r[2]).length > 1 && numVal(r[3]) !== null) {
-        const obj = {
-          Compound_ID: String(r[0]).trim(),
-          batch_id: String(r[1]||'').trim(),
-          Species: curSpecies || String(r[2]||'').trim(),
-          '%Bound': numVal(r[3]), '%Unbound': numVal(r[4]),
-          'Stab0.5': numVal(r[5]), 'Stab3.5': numVal(r[6]),
-          Condition: String(r[7]||''), CRO: String(r[8]||'Pharmaron')
-        };
-        if (obj.Compound_ID.toLowerCase().includes('warfarin') || obj.Compound_ID.toLowerCase().includes('ctrl')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  // Materials: get compound info
-  const mats = sheetRows(wb, 'Materials');
-  let mw = null, purity = null, compoundInfo = [];
-  if (mats) {
-    for (let r of mats) {
-      if (String(r[0]).includes('GEN-') || String(r[0]).includes('Compound')) {
-        if (numVal(r[4])) { mw = numVal(r[4]); purity = numVal(r[6]); compoundInfo.push({id:r[0],mw,purity}); }
-      }
-    }
-  }
-  return { compounds, controls, compoundInfo, rawSheets: wb.SheetNames };
+function badgePhase(p) {
+  if (p===1) return '<span class="badge b-p1">P-I</span>';
+  if (p===2) return '<span class="badge b-p2">P-II</span>';
+  return '<span class="badge b-dl">?</span>';
 }
 
-function parseMicBinding(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  const mats = sheetRows(wb, 'Materials');
-  let mw = null, purity = null;
-  if (mats) {
-    for (let r of mats) {
-      if (String(r[0]).match(/GEN-\d/)) { mw = numVal(r[4]); purity = numVal(r[6]); }
-    }
-  }
-  if (summ) {
-    let cur = {};
-    for (let r of summ) {
-      // Rows: CompoundID, Batch, Species, %Bound, %Unbound, %Recovery, %Stability@5h, Condition, CRO
-      if (numVal(r[3]) !== null && numVal(r[4]) !== null && String(r[2]).length > 1) {
-        const obj = {
-          Compound_ID: String(r[0]).trim(), batch_id: String(r[1]||'').trim(),
-          Species: String(r[2]).trim(), '%Bound': numVal(r[3]), '%Unbound': numVal(r[4]),
-          '%Recovery': numVal(r[5]), 'Stab5h': numVal(r[6]), Condition: String(r[7]||''), CRO: String(r[8]||'Pharmaron')
-        };
-        if (obj.Compound_ID.toLowerCase().includes('chlorpromazine')) controls.push(obj);
-        else if (obj.Compound_ID) compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, mw, purity, rawSheets: wb.SheetNames };
+// ── Filter & sort ─────────────────────────────────────────────────────────────
+function filterMets(el) {
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  activeFilter = el.dataset.filter;
+  renderMetsTable();
 }
 
-function parseBloodPart(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    let skip = true;
-    for (let r of summ) {
-      // Look for data rows: CompoundID, BatchID, Species, Rep1, Rep2, Mean
-      if (numVal(r[3]) !== null && String(r[0]).length > 2 && String(r[2]).match(/Human|Rat|Mouse|Monkey/i)) {
-        const obj = {
-          Compound_ID: String(r[0]).trim(), batch_id: String(r[1]||'').trim(),
-          Species: String(r[2]).trim(), Rep1: numVal(r[3]), Rep2: numVal(r[4]),
-          Kbp: numVal(r[5]) || ((numVal(r[3])||0 + numVal(r[4])||0)/2), CRO:'Pharmaron'
-        };
-        if (!obj.Kbp) obj.Kbp = (obj.Rep1 + obj.Rep2) / 2;
-        if (obj.Compound_ID.toLowerCase().includes('chloroquine') || obj.Compound_ID.toLowerCase().includes('caffeine')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
+function setSortAndRender(val) {
+  document.getElementById('sort-select').value = val;
+  renderMetsTable();
 }
 
-function parseCYPScreen(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    let curIsoform = '';
-    for (let r of summ) {
-      if (String(r[0]).toLowerCase().includes('cyp3a') || String(r[1]).toLowerCase().includes('cyp')) {
-        curIsoform = String(r[1]||r[0]).includes('3A-M') ? 'CYP3A-M' : String(r[1]||r[0]).includes('3A-T') ? 'CYP3A-T' : '';
-      }
-      // Inhibition row: Compound, Batch, Inh% CYP3A-M, Inh% CYP3A-T
-      if (String(r[0]).includes('GEN-') || String(r[0]).includes('Ketoconazole')) {
-        if (numVal(r[2]) !== null || numVal(r[3]) !== null) {
-          const obj = { Compound_ID: String(r[0]).trim(), batch_id: String(r[1]||'').trim(), 'CYP3A-M_Inh': numVal(r[2]), 'CYP3A-T_Inh': numVal(r[3]) };
-          if (obj.Compound_ID.includes('Ketoconazole') || obj.Compound_ID.includes('Positive')) controls.push(obj);
-          else compounds.push(obj);
-        }
-      }
-    }
-  }
-  // Also check 3A-M sheet raw data
-  const raw3aM = sheetRows(wb, '3A-M');
-  const raw3aT = sheetRows(wb, '3A-T');
-  const rawInh = {};
-  function extractInh(rows, isoform) {
-    if (!rows) return;
-    let dmsoRatio = null;
-    for (let r of rows) {
-      if (String(r[2]).includes('DMSO')) dmsoRatio = numVal(r[5]);
-      if (String(r[2]).includes('GEN-') && numVal(r[5]) !== null && dmsoRatio) {
-        const cpd = String(r[2]).split('-1')[0].split('-2')[0].trim();
-        const rem = (numVal(r[5]) / dmsoRatio) * 100;
-        if (!rawInh[cpd]) rawInh[cpd] = {};
-        const inh = 100 - rem;
-        rawInh[cpd][isoform] = inh;
-        rawInh[cpd].batch = String(r[2]).match(/AA-\d+/)?.[0] || '';
-      }
-    }
-  }
-  extractInh(raw3aM, 'CYP3A-M'); extractInh(raw3aT, 'CYP3A-T');
-  // Merge if compounds is empty
-  if (compounds.length === 0) {
-    for (const [cid, vals] of Object.entries(rawInh)) {
-      compounds.push({ Compound_ID: cid, batch_id: vals.batch||'', 'CYP3A-M_Inh': vals['CYP3A-M'], 'CYP3A-T_Inh': vals['CYP3A-T'] });
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
+function renderMetsTable() {
+  const sortBy = document.getElementById('sort-select').value;
+  const tbody = document.getElementById('met-tbody');
 
-function parseCYPIC50(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    for (let r of summ) {
-      // Table 1: CompoundID, Batch, IC50 CYP3A-M R1, R2, Mean, IC50 CYP3A-T R1, R2, Mean
-      if ((String(r[0]).includes('GEN-') || String(r[0]).includes('Mifepristone')) && numVal(r[2]) !== null) {
-        const obj = { Compound_ID: String(r[0]).trim(), batch_id: String(r[1]||'').trim(),
-          'IC50_3AM_R1': numVal(r[2]), 'IC50_3AM_R2': numVal(r[3]), 'IC50_3AM_Mean': numVal(r[4]),
-          'IC50_3AT_R1': numVal(r[5]), 'IC50_3AT_R2': numVal(r[6]), 'IC50_3AT_Mean': numVal(r[7]) };
-        if (obj.Compound_ID.includes('Mifepristone')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parseCYPTDI(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  // Summary format: Table 1 – IC50 values
-  // Compound, Batch, Pre-incubation, IC50 CYP3A-M, Inh%
-  if (summ) {
-    let currentCpd = '', currentBatch = '';
-    for (let r of summ) {
-      if (String(r[0]).includes('GEN-') || String(r[0]).includes('Mifepristone') || String(r[0]).trim().startsWith(' Mifepristone')) {
-        currentCpd = String(r[0]).trim().replace(/^\s+/, '');
-        currentBatch = String(r[1]||'').trim();
-      }
-      const preInc = String(r[2]||'').trim();
-      if ((preInc.includes('0 min') || preInc.includes('30 min')) && numVal(r[3]) !== null) {
-        const entry = { Compound_ID: currentCpd, batch_id: currentBatch, preInc, IC50_3AM: numVal(r[3]), Inh3AM: numVal(r[4]) };
-        if (currentCpd.includes('Mifepristone')) controls.push(entry);
-        else compounds.push(entry);
-      }
-    }
-  }
-  // Pivot compounds into upload-friendly format
-  const pivoted = {};
-  for (const e of compounds) {
-    const k = e.Compound_ID + '|' + e.batch_id;
-    if (!pivoted[k]) pivoted[k] = { Compound_ID: e.Compound_ID, batch_id: e.batch_id };
-    if (e.preInc.includes('0 min')) { pivoted[k].IC50_0min = e.IC50_3AM; pivoted[k].Inh_0min = e.Inh3AM; }
-    if (e.preInc.includes('30 min') && e.preInc.includes('without')) { pivoted[k].IC50_30mNoNADPH = e.IC50_3AM; pivoted[k].Inh_30mNoNADPH = e.Inh3AM; }
-    if (e.preInc.includes('30 min') && e.preInc.includes('with')) { pivoted[k].IC50_30mNADPH = e.IC50_3AM; pivoted[k].Inh_30mNADPH = e.Inh3AM; }
-  }
-  const pivotedControls = {};
-  for (const e of controls) {
-    const k = e.Compound_ID + '|' + e.batch_id;
-    if (!pivotedControls[k]) pivotedControls[k] = { Compound_ID: e.Compound_ID, batch_id: e.batch_id };
-    if (e.preInc.includes('0 min')) { pivotedControls[k].IC50_0min = e.IC50_3AM; }
-    if (e.preInc.includes('30 min') && e.preInc.includes('without')) { pivotedControls[k].IC50_30mNoNADPH = e.IC50_3AM; }
-    if (e.preInc.includes('30 min') && e.preInc.includes('with')) { pivotedControls[k].IC50_30mNADPH = e.IC50_3AM; }
-  }
-  // Get CYP isoform from title
-  const sig = sheetRows(wb, 'Signature');
-  let isoform = 'CYP3A-M';
-  if (sig) {
-    const title = sig.slice(0,3).map(r=>r.join(' ')).join(' ');
-    if (title.includes('3A-T')) isoform = 'CYP3A-T';
-    if (title.includes('3A-M') && title.includes('3A-T')) isoform = 'CYP3A-M/T';
-  }
-  return { compounds: Object.values(pivoted), controls: Object.values(pivotedControls), isoform, rawSheets: wb.SheetNames };
-}
-
-function parseUGT(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    for (let r of summ) {
-      if ((String(r[0]).includes('GEN-') || String(r[0]).includes('Silybin')) && numVal(r[2]) !== null) {
-        const obj = { Compound_ID: String(r[0]).trim(), batch_id: String(r[1]||'').trim(), IC50_UGT1A1: numVal(r[2]) };
-        if (obj.Compound_ID.includes('Silybin')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parseHERG(wb) {
-  const raw = sheetRows(wb, 'Raw data') || sheetRows(wb, 'Raw Data');
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    // Summary format: Cpds Code, Compound ID, (empty), Top Conc, IC50, Comment
-    for (let r of summ) {
-      const cid = String(r[2]||r[1]||'');
-      if (cid.includes('GEN-') || cid.includes('Cisapride')) {
-        const ic50 = numVal(r[4]) || numVal(r[3]);
-        if (ic50 !== null) {
-          const obj = { Compound_ID: cid.replace(/-AA-\d+/, '').trim(), batch_id: cid.includes('-AA-') ? cid.match(/AA-\d+/)[0] : '-', IC50: ic50 };
-          if (cid.includes('Cisapride')) controls.push(obj);
-          else compounds.push(obj);
-        }
-      }
-    }
-  }
-  // Also scan raw data table
-  if (raw && compounds.length === 0) {
-    for (let r of raw) {
-      const cid = String(r[1]||r[2]||'');
-      if (cid.includes('GEN-') && numVal(r[8]) !== null) {
-        compounds.push({ Compound_ID: cid.replace(/-AA-\d+/,'').trim(), batch_id: cid.includes('-AA-') ? cid.match(/AA-\d+/)[0] : '-', IC50: numVal(r[8]), HillSlope: numVal(r[7]) });
-      }
-      if (cid.includes('Cisapride') && numVal(r[8]) !== null) {
-        controls.push({ Compound_ID: 'Cisapride', IC50: numVal(r[8]), HillSlope: numVal(r[7]) });
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parsePXR(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    // Cols: MolName, Batch, Viab@1, FoldInd@1, %Ctrl@1, Viab@10, FoldInd@10, %Ctrl@10, CRO
-    for (let r of summ) {
-      const mol = String(r[0]||'').trim();
-      if ((mol.includes('GEN-') || mol.includes('Rifampicin') || mol.includes('DMSO')) && numVal(r[3]) !== null) {
-        const obj = { Compound_ID: mol, batch_id: String(r[1]||'').trim(),
-          Viab1uM: numVal(r[2]), FoldInd1uM: numVal(r[3]), PctCtrl1uM: numVal(r[4]),
-          Viab10uM: numVal(r[5]), FoldInd10uM: numVal(r[6]), PctCtrl10uM: numVal(r[7]), CRO: 'Pharmaron' };
-        if (mol.includes('Rifampicin')) controls.push(obj);
-        else if (mol.includes('GEN-')) compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parsePhototox(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    // Cols: CompoundID, BatchID, IC50-Irr, IC50+Irr, PIF, MPE
-    for (let r of summ) {
-      const cid = String(r[0]||'').trim().replace(/\*+/g,'').trim();
-      if ((cid.includes('GEN-') || cid.includes('Chlorpromazine') || cid.includes('Hexachlorophene')) && numVal(r[2]) !== null) {
-        const obj = { Compound_ID: cid, batch_id: String(r[1]||'').trim(),
-          IC50_minusIrr: numVal(r[2]) || r[2], IC50_plusIrr: numVal(r[3]),
-          PIF: numVal(r[4]) || r[4], MPE: numVal(r[5]), CRO:'Pharmaron' };
-        if (cid.includes('Chlorpromazine') || cid.includes('Hexachlorophene')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parseHepatotox(wb) {
-  const summ = sheetRows(wb, 'Summary');
-  const compounds = [];
-  const controls = [];
-  if (summ) {
-    // Cols: CompoundID, IC50(μM), % cell viability at highest conc
-    for (let r of summ) {
-      const cid = String(r[0]||'').trim().replace(/\*+/g,'').trim();
-      const ic50raw = String(r[1]||'');
-      if ((cid.includes('GEN-') || cid.includes('Tamoxifen')) && ic50raw.length > 0) {
-        const ic50 = ic50raw.includes('>') ? ic50raw : numVal(r[1]);
-        const obj = { Compound_ID: cid, batch_id: cid.includes('-AA-') ? cid.match(/AA-\d+/)[0] : '-',
-          Species: 'Human', IC50: ic50, PctViability: numVal(r[2]), CRO:'Pharmaron', Comment:'' };
-        if (cid.includes('Tamoxifen')) controls.push(obj);
-        else compounds.push(obj);
-      }
-    }
-  }
-  return { compounds, controls, rawSheets: wb.SheetNames };
-}
-
-function parseGeneric(wb, id) {
-  return { rawSheets: wb.SheetNames, compounds: [], controls: [] };
-}
-
-
-// ============================================================
-// QC SECTION BUILDERS — per assay
-// ============================================================
-function buildQCSections(id, p) {
-  // Each section: { title, icon, items: [{key, label, auto, status, value, note}] }
-  const err = p.error;
-  if (err) return [{ title:'Parse Error', icon:'❌', items:[{key:'err', label:'Failed to parse: ' + err, auto:'fail', status:'fail'}]}];
-
-  switch(id) {
-    case 'plasma_stab':   return qcPlasmaStab(p);
-    case 'ppb_uc':        return qcPPBUC(p);
-    case 'mic_binding':   return qcMicBinding(p);
-    case 'blood_part':    return qcBloodPart(p);
-    case 'cyp_screen':    return qcCYPScreen(p);
-    case 'cyp_ic50':      return qcCYPIC50(p);
-    case 'cyp_tdi':       return qcCYPTDI(p);
-    case 'ugt':           return qcUGT(p);
-    case 'herg':          return qcHERG(p);
-    case 'pxr':           return qcPXR(p);
-    case 'phototox':      return qcPhototox(p);
-    case 'hepatotox':     return qcHepatotox(p);
-    default:              return qcGeneric(p);
-  }
-}
-
-function inRange(v, lo, hi) { return v !== null && v >= lo && v <= hi; }
-function autoSt(v, lo, hi, loBorder, hiBorder) {
-  if (v === null) return 'pend';
-  if (v >= lo && v <= hi) return 'pass';
-  if ((loBorder !== undefined && v >= loBorder && v < lo) || (hiBorder !== undefined && v > hi && v <= hiBorder)) return 'warn';
-  return 'fail';
-}
-function fmtN(v, dp=2) { return v !== null && v !== undefined ? Number(v).toFixed(dp) : 'N/A'; }
-
-// ── Plasma Stability ────────────────────────────────────────
-function qcPlasmaStab(p) {
-  const items = [];
-  items.push({key:'cmpd_data', label: `Compounds found: ${p.compounds.length}`, auto: p.compounds.length > 0 ? 'pass':'warn', value: p.compounds.map(c=>c['Compound_ID']||c['compound_id']||'?').join(', ')});
-  const isCv = p.isCv;
-  items.push({key:'is_cv', label:'IS Peak Area CV ≤ 25%', auto: isCv !== null ? (isCv <= 25 ? 'pass':'fail') : 'pend', value: isCv !== null ? fmtN(isCv)+'%' : 'Not found', note: 'From raw data'});
-  // Species check
-  const species = [...new Set(p.compounds.map(c => c.Species||c.species||''))].filter(Boolean);
-  items.push({key:'species', label:'Species confirmed', auto: species.length > 0 ? 'pass':'pend', value: species.join(', ')});
-  // T1/2 values
-  for (const c of p.compounds) {
-    const t12 = numVal(c['in vitro t1/2 (min)']);
-    items.push({key:'t12_'+c.Compound_ID+'_'+c.Species, label:`${c.Compound_ID || c.compound_id || '?'} (${c.Species||c.species||'?'}) — in vitro t½`, auto: t12 !== null ? 'info':'pend', value: t12 !== null ? fmtN(t12) + ' min' : 'N/A'});
-  }
-  return [{title:'Plasma Stability QC', icon:'💧', items}];
-}
-
-// ── PPB_UC ──────────────────────────────────────────────────
-function qcPPBUC(p) {
-  const secs = [];
-  // Control check
-  const ctrl = p.controls.find(c => c.Compound_ID.includes('Warfarin')) || p.controls[0];
-  const ctrlItems = [];
-  if (ctrl) {
-    ctrlItems.push({key:'warfarin_bound', label:'Warfarin % Bound > 90%', auto: ctrl['%Bound'] !== null ? (ctrl['%Bound'] > 90 ? 'pass':'fail') : 'pend', value: ctrl['%Bound'] !== null ? fmtN(ctrl['%Bound'])+'%' : 'N/A'});
-    ctrlItems.push({key:'warfarin_stab05', label:'Warfarin % Stability @ 0.5 hr: 75–125%', auto: autoSt(ctrl.Stab0_5||ctrl['Stab0.5'], 75, 125, 70, 130), value: (ctrl.Stab0_5||ctrl['Stab0.5']) !== null ? fmtN(ctrl.Stab0_5||ctrl['Stab0.5'])+'%' : 'N/A'});
-    ctrlItems.push({key:'warfarin_stab35', label:'Warfarin % Stability @ 3.5 hr: 75–125%', auto: autoSt(ctrl.Stab3_5||ctrl['Stab3.5'], 75, 125, 70, 130), value: (ctrl.Stab3_5||ctrl['Stab3.5']) !== null ? fmtN(ctrl.Stab3_5||ctrl['Stab3.5'])+'%' : 'N/A'});
-  } else {
-    ctrlItems.push({key:'ctrl_missing', label:'Warfarin control not found', auto:'warn'});
-  }
-  secs.push({title:'Control Checks', icon:'🎯', items: ctrlItems});
-  // Compound results
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    cmpItems.push({key:`bd_${c.Compound_ID}_${c.Species}`, label:`${c.Compound_ID} (${c.Species}) — % Bound`, auto:'info', value: fmtN(c['%Bound'])+'%'});
-    cmpItems.push({key:`unbd_${c.Compound_ID}_${c.Species}`, label:`${c.Compound_ID} (${c.Species}) — % Unbound`, auto:'info', value: fmtN(c['%Unbound'])+'%'});
-    const st05 = c['Stab0.5'] || c.Stab0_5 || c['% Stability at 0.5 hrs'];
-    const st35 = c['Stab3.5'] || c.Stab3_5 || c['% Stability at 3.5 hrs'];
-    cmpItems.push({key:`st05_${c.Compound_ID}_${c.Species}`, label:`${c.Compound_ID} (${c.Species}) — % Stability @ 0.5 hr`, auto: autoSt(numVal(st05), 75, 125, 65, 135), value: fmtN(numVal(st05))+'%'});
-    cmpItems.push({key:`st35_${c.Compound_ID}_${c.Species}`, label:`${c.Compound_ID} (${c.Species}) — % Stability @ 3.5 hr`, auto: autoSt(numVal(st35), 75, 125, 65, 135), value: fmtN(numVal(st35))+'%'});
-  }
-  secs.push({title:'Compound Results', icon:'🔩', items: cmpItems});
-  secs.push(manualChecks('ppb_uc'));
-  return secs;
-}
-
-// ── Microsome Binding ────────────────────────────────────────
-function qcMicBinding(p) {
-  const secs = [];
-  const ctrl = p.controls.find(c => c.Compound_ID.toLowerCase().includes('chlorpromazine')) || p.controls[0];
-  const ctrlItems = [];
-  if (ctrl) {
-    ctrlItems.push({key:'cpz_bound', label:'Chlorpromazine % Bound > 75%', auto: ctrl['%Bound'] > 75 ? 'pass':'fail', value: fmtN(ctrl['%Bound'])+'%'});
-    ctrlItems.push({key:'cpz_rec', label:'Chlorpromazine % Recovery: 75–125%', auto: autoSt(ctrl['%Recovery'], 75, 125, 65, 135), value: fmtN(ctrl['%Recovery'])+'%'});
-    ctrlItems.push({key:'cpz_stab', label:'Chlorpromazine Stability @ 5h: 75–125%', auto: autoSt(ctrl.Stab5h, 75, 125, 65, 135), value: fmtN(ctrl.Stab5h)+'%'});
-  }
-  secs.push({title:'Control Checks (Chlorpromazine)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    cmpItems.push({key:`bd_${c.Compound_ID}`, label:`${c.Compound_ID} — % Bound`, auto:'info', value: fmtN(c['%Bound'])+'%'});
-    cmpItems.push({key:`ub_${c.Compound_ID}`, label:`${c.Compound_ID} — % Unbound`, auto:'info', value: fmtN(c['%Unbound'])+'%'});
-    cmpItems.push({key:`rc_${c.Compound_ID}`, label:`${c.Compound_ID} — % Recovery`, auto: autoSt(c['%Recovery'], 75, 125, 65, 135), value: fmtN(c['%Recovery'])+'%'});
-    cmpItems.push({key:`st_${c.Compound_ID}`, label:`${c.Compound_ID} — Stability @ 5h`, auto: autoSt(c.Stab5h, 75, 125, 65, 135), value: fmtN(c.Stab5h)+'%'});
-  }
-  secs.push({title:'Compound Results', icon:'⚪', items: cmpItems});
-  secs.push(manualChecks('mic_binding'));
-  return secs;
-}
-
-// ── Blood Partitioning ───────────────────────────────────────
-function qcBloodPart(p) {
-  const secs = [];
-  const refRanges = {Human:[2,3], Rat:[2,3], Mouse:[2,3], Monkey:[2,3], Dog:[4,5]};
-  const ctrlItems = [];
-  for (const c of p.controls) {
-    const rng = refRanges[c.Species] || [null, null];
-    const st = rng[0] !== null ? autoSt(c.Kbp, rng[0], rng[1], rng[0]-0.5, rng[1]+0.5) : 'info';
-    ctrlItems.push({key:`ctrl_${c.Species}`, label:`Chloroquine Kb/p (${c.Species}): expected ${rng[0] !== null ? rng[0]+'–'+rng[1] : 'N/A'}`, auto: st, value: fmtN(c.Kbp, 3)});
-  }
-  if (!p.controls.length) ctrlItems.push({key:'ctrl_miss', label:'Chloroquine control not found', auto:'warn'});
-  secs.push({title:'Control Checks (Chloroquine)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const kbp = c.Kbp || ((c.Rep1||0)+(c.Rep2||0))/2;
-    const interp = kbp > 1 ? 'Blood > Plasma' : kbp < 1 ? 'Plasma > Blood' : 'Equal distribution';
-    cmpItems.push({key:`kbp_${c.Compound_ID}_${c.Species}`, label:`${c.Compound_ID} (${c.Species}) — Kb/p`, auto:'info', value: fmtN(kbp, 3), note: interp});
-  }
-  secs.push({title:'Compound Results', icon:'🩺', items: cmpItems});
-  secs.push(manualChecks('blood_part'));
-  return secs;
-}
-
-// ── CYP Screening ────────────────────────────────────────────
-function qcCYPScreen(p) {
-  const secs = [];
-  const ctrlItems = [];
-  const ctrl = p.controls[0];
-  if (ctrl) {
-    const inh3am = ctrl['CYP3A-M_Inh'];
-    const inh3at = ctrl['CYP3A-T_Inh'];
-    ctrlItems.push({key:'keto_3am', label:'Positive control (Ketoconazole) CYP3A-M Inhibition > 90%', auto: inh3am !== null ? (inh3am > 90 ? 'pass':'fail') : 'pend', value: inh3am !== null ? fmtN(inh3am)+'%' : 'N/A'});
-    ctrlItems.push({key:'keto_3at', label:'Positive control CYP3A-T Inhibition > 90%', auto: inh3at !== null ? (inh3at > 90 ? 'pass':'fail') : 'pend', value: inh3at !== null ? fmtN(inh3at)+'%' : 'N/A'});
-  } else { ctrlItems.push({key:'ctrl_miss', label:'Positive control not found', auto:'warn'}); }
-  secs.push({title:'Control Checks', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const i3m = c['CYP3A-M_Inh'], i3t = c['CYP3A-T_Inh'];
-    const interp3m = i3m !== null ? (i3m > 50 ? '⚠️ > 50% inhibition' : i3m > 25 ? 'Moderate' : '✅ Low') : '';
-    const interp3t = i3t !== null ? (i3t > 50 ? '⚠️ > 50% inhibition' : i3t > 25 ? 'Moderate' : '✅ Low') : '';
-    cmpItems.push({key:`inh3am_${c.Compound_ID}`, label:`${c.Compound_ID} — CYP3A-M % Inhibition @ 1 μM`, auto: i3m !== null ? (i3m > 50 ? 'warn' : 'pass') : 'pend', value: i3m !== null ? fmtN(i3m)+'%' : 'N/A', note: interp3m});
-    cmpItems.push({key:`inh3at_${c.Compound_ID}`, label:`${c.Compound_ID} — CYP3A-T % Inhibition @ 1 μM`, auto: i3t !== null ? (i3t > 50 ? 'warn' : 'pass') : 'pend', value: i3t !== null ? fmtN(i3t)+'%' : 'N/A', note: interp3t});
-  }
-  secs.push({title:'Compound Results', icon:'⚗️', items: cmpItems});
-  secs.push(manualChecks('cyp_screen'));
-  return secs;
-}
-
-// ── CYP IC50 ─────────────────────────────────────────────────
-function qcCYPIC50(p) {
-  const secs = [];
-  const ctrlItems = [];
-  for (const c of p.controls) {
-    const m = c['IC50_3AM_Mean'] !== null ? fmtN(c['IC50_3AM_Mean'])+'μM' : 'N/A';
-    const t = c['IC50_3AT_Mean'] !== null ? fmtN(c['IC50_3AT_Mean'])+'μM' : 'N/A';
-    ctrlItems.push({key:'mif_3am', label:'Mifepristone CYP3A-M IC50: expected 3–8 μM', auto: autoSt(c['IC50_3AM_Mean'], 3, 8, 2, 10), value: m});
-    ctrlItems.push({key:'mif_3at', label:'Mifepristone CYP3A-T IC50: expected 3–8 μM (with NADPH 0.2–0.6)', auto: autoSt(c['IC50_3AT_Mean'], 3, 8, 2, 10), value: t});
-  }
-  if (!p.controls.length) ctrlItems.push({key:'ctrl_miss', label:'Mifepristone control not found', auto:'warn'});
-  secs.push({title:'Control Checks (Mifepristone)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const m3am = c['IC50_3AM_Mean'], m3at = c['IC50_3AT_Mean'];
-    const interp = v => v !== null ? (v < 1 ? '🔴 Strong inhibitor (<1μM)' : v < 10 ? '🟡 Moderate (1–10μM)' : '✅ Weak (>10μM)') : '';
-    cmpItems.push({key:`ic50_3am_${c.Compound_ID}`, label:`${c.Compound_ID} — CYP3A-M IC50`, auto: m3am !== null ? (m3am < 1 ? 'fail' : m3am < 10 ? 'warn' : 'pass') : 'pend', value: m3am !== null ? fmtN(m3am)+'μM' : 'N/A', note: interp(m3am)});
-    cmpItems.push({key:`ic50_3at_${c.Compound_ID}`, label:`${c.Compound_ID} — CYP3A-T IC50`, auto: m3at !== null ? (m3at < 1 ? 'fail' : m3at < 10 ? 'warn' : 'pass') : 'pend', value: m3at !== null ? fmtN(m3at)+'μM' : 'N/A', note: interp(m3at)});
-    // CV between replicates
-    const cvM = c['IC50_3AM_R1'] && c['IC50_3AM_R2'] ? Math.abs((c['IC50_3AM_R1']-c['IC50_3AM_R2'])/((c['IC50_3AM_R1']+c['IC50_3AM_R2'])/2)*100) : null;
-    if (cvM !== null) cmpItems.push({key:`cv_3am_${c.Compound_ID}`, label:`${c.Compound_ID} CYP3A-M Replicate CV`, auto: cvM < 30 ? 'pass':'warn', value: fmtN(cvM)+'%'});
-  }
-  secs.push({title:'Compound Results', icon:'⚗️', items: cmpItems});
-  secs.push(manualChecks('cyp_ic50'));
-  return secs;
-}
-
-// ── CYP TDI ──────────────────────────────────────────────────
-function qcCYPTDI(p) {
-  const secs = [];
-  const ctrlItems = [];
-  for (const c of p.controls) {
-    ctrlItems.push({key:'mif_0min', label:'Mifepristone IC50 (0 min): 3–8 μM', auto: autoSt(c.IC50_0min, 3, 8, 2, 10), value: c.IC50_0min ? fmtN(c.IC50_0min)+'μM' : 'N/A'});
-    ctrlItems.push({key:'mif_30m_no', label:'Mifepristone IC50 (30 min -NADPH): 3–8 μM', auto: autoSt(c.IC50_30mNoNADPH, 3, 8, 2, 10), value: c.IC50_30mNoNADPH ? fmtN(c.IC50_30mNoNADPH)+'μM' : 'N/A'});
-    ctrlItems.push({key:'mif_30m_yes', label:'Mifepristone IC50 (30 min +NADPH): 0.2–0.6 μM', auto: autoSt(c.IC50_30mNADPH, 0.2, 0.6, 0.1, 0.8), value: c.IC50_30mNADPH ? fmtN(c.IC50_30mNADPH)+'μM' : 'N/A'});
-  }
-  if (!p.controls.length) ctrlItems.push({key:'ctrl_miss', label:'Mifepristone control not found', auto:'warn'});
-  secs.push({title:'Control Checks (Mifepristone)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    // TDI flag: IC50 with NADPH < 10 and shift > 2-fold vs without NADPH
-    const hasShift = c.IC50_30mNADPH !== null && c.IC50_30mNoNADPH !== null && c.IC50_30mNADPH < 10;
-    const shiftRatio = (c.IC50_30mNoNADPH && c.IC50_30mNADPH) ? c.IC50_30mNoNADPH / c.IC50_30mNADPH : null;
-    const tdiFlag = hasShift && shiftRatio && shiftRatio > 2;
-    cmpItems.push({key:`ic50_0_${c.Compound_ID}`, label:`${c.Compound_ID} — IC50 (0 min)`, auto:'info', value: c.IC50_0min ? fmtN(c.IC50_0min)+'μM' : 'N/A'});
-    cmpItems.push({key:`ic50_no_${c.Compound_ID}`, label:`${c.Compound_ID} — IC50 (30 min -NADPH)`, auto:'info', value: c.IC50_30mNoNADPH ? fmtN(c.IC50_30mNoNADPH)+'μM' : 'N/A'});
-    cmpItems.push({key:`ic50_yes_${c.Compound_ID}`, label:`${c.Compound_ID} — IC50 (30 min +NADPH)`, auto: c.IC50_30mNADPH !== null ? (c.IC50_30mNADPH < 10 ? 'warn':'pass') : 'pend', value: c.IC50_30mNADPH ? fmtN(c.IC50_30mNADPH)+'μM' : 'N/A', note: tdiFlag ? `⚠️ TDI suspected — ${fmtN(shiftRatio,1)}x shift with NADPH` : ''});
-    if (shiftRatio !== null) cmpItems.push({key:`shift_${c.Compound_ID}`, label:`${c.Compound_ID} — NADPH shift ratio`, auto: tdiFlag ? 'fail':'pass', value: fmtN(shiftRatio,2)+'x', note: 'Ratio of IC50(−NADPH)/IC50(+NADPH); >2 with +NADPH<10μM = TDI flag'});
-  }
-  secs.push({title:'TDI Assessment', icon:'⚗️', items: cmpItems});
-  secs.push(manualChecks('cyp_tdi'));
-  return secs;
-}
-
-// ── UGT ─────────────────────────────────────────────────────
-function qcUGT(p) {
-  const secs = [];
-  const ctrl = p.controls.find(c => c.Compound_ID.includes('Silybin'));
-  const ctrlItems = [];
-  if (ctrl) {
-    ctrlItems.push({key:'sil_ic50', label:'Silybin IC50 (UGT1A1): 1.3–2.0 μM', auto: autoSt(ctrl.IC50_UGT1A1, 1.3, 2.0, 1.0, 2.5), value: fmtN(ctrl.IC50_UGT1A1)+'μM'});
-  } else { ctrlItems.push({key:'ctrl_miss', label:'Silybin control not found', auto:'warn'}); }
-  secs.push({title:'Control Checks (Silybin)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const ic50 = c.IC50_UGT1A1;
-    const interp = ic50 !== null ? (ic50 < 1 ? '🔴 High (< 1 μM)' : ic50 <= 10 ? '🟡 Moderate (1–10 μM)' : '✅ Low (> 10 μM)') : '';
-    cmpItems.push({key:`ic50_${c.Compound_ID}`, label:`${c.Compound_ID} — UGT1A1 IC50`, auto: ic50 !== null ? (ic50 < 1 ? 'fail' : ic50 <= 10 ? 'warn' : 'pass') : 'pend', value: ic50 !== null ? fmtN(ic50)+'μM' : 'N/A', note: interp});
-  }
-  secs.push({title:'Compound Results', icon:'🧬', items: cmpItems});
-  secs.push(manualChecks('ugt'));
-  return secs;
-}
-
-// ── hERG ─────────────────────────────────────────────────────
-function qcHERG(p) {
-  const secs = [];
-  const ctrl = p.controls.find(c => c.Compound_ID.includes('Cisapride'));
-  const ctrlItems = [];
-  if (ctrl) {
-    ctrlItems.push({key:'cisp_ic50', label:'Cisapride IC50: 0.01–0.03 μM', auto: autoSt(ctrl.IC50, 0.01, 0.03, 0.005, 0.05), value: fmtN(ctrl.IC50, 4)+'μM'});
-    if (ctrl.HillSlope) ctrlItems.push({key:'cisp_hill', label:'Cisapride Hill Slope: 0.7–2.5', auto: autoSt(ctrl.HillSlope, 0.7, 2.5, 0.5, 3), value: fmtN(ctrl.HillSlope, 3)});
-  } else { ctrlItems.push({key:'ctrl_miss', label:'Cisapride control not found', auto:'warn'}); }
-  secs.push({title:'Control Checks (Cisapride)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const ic50 = c.IC50;
-    const risk = ic50 !== null ? (ic50 < 1 ? '🔴 High risk (< 1 μM)' : ic50 < 10 ? '🟡 Moderate (1–10 μM)' : '✅ Low risk (> 10 μM)') : '';
-    cmpItems.push({key:`ic50_${c.Compound_ID}`, label:`${c.Compound_ID} — hERG IC50`, auto: ic50 !== null ? (ic50 < 1 ? 'fail' : ic50 < 10 ? 'warn' : 'pass') : 'pend', value: ic50 !== null ? fmtN(ic50, 3)+'μM' : 'N/A', note: risk});
-    if (c.HillSlope) cmpItems.push({key:`hill_${c.Compound_ID}`, label:`${c.Compound_ID} — Hill Slope: 0.7–2.5`, auto: autoSt(c.HillSlope, 0.7, 2.5, 0.5, 3), value: fmtN(c.HillSlope, 3)});
-  }
-  secs.push({title:'Compound Results', icon:'❤️', items: cmpItems});
-  secs.push(manualChecks('herg'));
-  return secs;
-}
-
-// ── PXR ─────────────────────────────────────────────────────
-function qcPXR(p) {
-  const secs = [];
-  const ctrl = p.controls.find(c => c.Compound_ID.includes('Rifampicin'));
-  const ctrlItems = [];
-  if (ctrl) {
-    ctrlItems.push({key:'rif_viab1', label:'Rifampicin % Viability @ 1 μM > 90%', auto: ctrl.Viab1uM !== null ? (ctrl.Viab1uM > 90 ? 'pass':'fail') : 'pend', value: ctrl.Viab1uM ? fmtN(ctrl.Viab1uM)+'%' : 'N/A'});
-    ctrlItems.push({key:'rif_fi1', label:'Rifampicin Fold Induction @ 1 μM > 5', auto: ctrl.FoldInd1uM !== null ? (ctrl.FoldInd1uM > 5 ? 'pass':'fail') : 'pend', value: ctrl.FoldInd1uM ? fmtN(ctrl.FoldInd1uM, 1)+'x' : 'N/A'});
-    ctrlItems.push({key:'rif_fi10', label:'Rifampicin Fold Induction @ 10 μM > 10', auto: ctrl.FoldInd10uM !== null ? (ctrl.FoldInd10uM > 10 ? 'pass':'fail') : 'pend', value: ctrl.FoldInd10uM ? fmtN(ctrl.FoldInd10uM, 1)+'x' : 'N/A'});
-    ctrlItems.push({key:'rif_viab10', label:'Rifampicin % Viability @ 10 μM > 90%', auto: ctrl.Viab10uM !== null ? (ctrl.Viab10uM > 90 ? 'pass':'fail') : 'pend', value: ctrl.Viab10uM ? fmtN(ctrl.Viab10uM)+'%' : 'N/A'});
-  } else { ctrlItems.push({key:'ctrl_miss', label:'Rifampicin control not found', auto:'warn'}); }
-  secs.push({title:'Control Checks (Rifampicin)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const fi1 = c.FoldInd1uM, fi10 = c.FoldInd10uM, v1 = c.Viab1uM, v10 = c.Viab10uM;
-    cmpItems.push({key:`fi1_${c.Compound_ID}`, label:`${c.Compound_ID} — Fold Induction @ 1 μM`, auto: fi1 !== null ? (fi1 >= 2 ? 'warn':'pass') : 'pend', value: fi1 !== null ? fmtN(fi1, 2)+'x' : 'N/A', note: fi1 >= 2 ? '⚠️ ≥2x induction' : ''});
-    cmpItems.push({key:`fi10_${c.Compound_ID}`, label:`${c.Compound_ID} — Fold Induction @ 10 μM`, auto: fi10 !== null ? (fi10 >= 2 ? 'warn':'pass') : 'pend', value: fi10 !== null ? fmtN(fi10, 2)+'x' : 'N/A', note: fi10 >= 2 ? '⚠️ ≥2x induction' : ''});
-    cmpItems.push({key:`v1_${c.Compound_ID}`, label:`${c.Compound_ID} — % Viability @ 1 μM`, auto: v1 !== null ? (v1 < 80 ? 'fail' : v1 < 90 ? 'warn' : 'pass') : 'pend', value: v1 !== null ? fmtN(v1)+'%' : 'N/A'});
-    cmpItems.push({key:`v10_${c.Compound_ID}`, label:`${c.Compound_ID} — % Viability @ 10 μM`, auto: v10 !== null ? (v10 < 80 ? 'fail' : v10 < 90 ? 'warn' : 'pass') : 'pend', value: v10 !== null ? fmtN(v10)+'%' : 'N/A'});
-  }
-  secs.push({title:'Compound Results', icon:'🧪', items: cmpItems});
-  secs.push(manualChecks('pxr'));
-  return secs;
-}
-
-// ── Phototoxicity ─────────────────────────────────────────────
-function qcPhototox(p) {
-  const secs = [];
-  const cpz = p.controls.find(c => c.Compound_ID.includes('Chlorpromazine'));
-  const hex = p.controls.find(c => c.Compound_ID.includes('Hexachlorophene'));
-  const ctrlItems = [];
-  if (cpz) {
-    ctrlItems.push({key:'cpz_pif', label:'Chlorpromazine PIF: 40–60', auto: autoSt(numVal(cpz.PIF), 40, 60, 30, 70), value: String(cpz.PIF)});
-    ctrlItems.push({key:'cpz_mpe', label:'Chlorpromazine MPE: 0.3–0.5', auto: autoSt(cpz.MPE, 0.3, 0.5, 0.25, 0.6), value: fmtN(cpz.MPE, 3)});
-  }
-  if (hex) {
-    ctrlItems.push({key:'hex_pif', label:'Hexachlorophene PIF: 0.5–2', auto: autoSt(numVal(hex.PIF), 0.5, 2, 0.3, 2.5), value: String(hex.PIF)});
-    ctrlItems.push({key:'hex_mpe', label:'Hexachlorophene MPE: 0.0–0.1', auto: autoSt(hex.MPE, 0, 0.1, -0.05, 0.15), value: fmtN(hex.MPE, 4)});
-  }
-  if (!cpz && !hex) ctrlItems.push({key:'ctrl_miss', label:'Controls not found', auto:'warn'});
-  secs.push({title:'Control Checks', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const pif = numVal(c.PIF), mpe = numVal(c.MPE);
-    const pifSt = pif !== null ? (pif > 5 ? 'fail' : pif >= 2 ? 'warn' : 'pass') : 'pend';
-    const mpeSt = mpe !== null ? (mpe > 0.15 ? 'fail' : mpe >= 0.1 ? 'warn' : 'pass') : 'pend';
-    const interp = () => {
-      if (pif > 5 || mpe > 0.15) return '🔴 Phototoxic';
-      if ((pif >= 2 && pif <= 5) || (mpe >= 0.1 && mpe <= 0.15)) return '🟡 Equivocal';
-      if (pif < 2 && mpe < 0.1) return '✅ Not phototoxic';
-      return '';
-    };
-    cmpItems.push({key:`pif_${c.Compound_ID}`, label:`${c.Compound_ID} — PIF (< 2 = safe, 2–5 = equivocal, > 5 = phototoxic)`, auto: pifSt, value: String(c.PIF)});
-    cmpItems.push({key:`mpe_${c.Compound_ID}`, label:`${c.Compound_ID} — MPE (< 0.1 = safe, 0.1–0.15 = equivocal, > 0.15 = phototoxic)`, auto: mpeSt, value: fmtN(mpe, 4), note: interp()});
-  }
-  secs.push({title:'Phototoxicity Assessment', icon:'☀️', items: cmpItems});
-  secs.push(manualChecks('phototox'));
-  return secs;
-}
-
-// ── Hepatotoxicity ───────────────────────────────────────────
-function qcHepatotox(p) {
-  const secs = [];
-  const ctrl = p.controls.find(c => c.Compound_ID.includes('Tamoxifen'));
-  const ctrlItems = [];
-  if (ctrl) {
-    const ic50 = numVal(ctrl.IC50);
-    ctrlItems.push({key:'tam_ic50', label:'Tamoxifen IC50: 4–8 μM', auto: autoSt(ic50, 4, 8, 3, 10), value: fmtN(ic50)+'μM'});
-    ctrlItems.push({key:'tam_viab', label:'Tamoxifen % Viability @ highest conc: 0.01–1%', auto: autoSt(ctrl.PctViability, 0.01, 1, 0.001, 2), value: fmtN(ctrl.PctViability, 3)+'%'});
-  } else { ctrlItems.push({key:'ctrl_miss', label:'Tamoxifen control not found', auto:'warn'}); }
-  secs.push({title:'Control Checks (Tamoxifen)', icon:'🎯', items: ctrlItems});
-  const cmpItems = [];
-  for (const c of p.compounds) {
-    const ic50 = numVal(c.IC50) || c.IC50;
-    const isGT = String(c.IC50).includes('>');
-    const st = isGT ? 'pass' : (numVal(c.IC50) && numVal(c.IC50) < 10 ? 'warn' : 'pass');
-    cmpItems.push({key:`ic50_${c.Compound_ID}`, label:`${c.Compound_ID} — IC50`, auto: st, value: String(c.IC50) + ' μM', note: isGT ? '✅ No cytotoxicity up to tested conc' : (numVal(c.IC50) < 10 ? '⚠️ Cytotoxic < 10 μM' : '')});
-    cmpItems.push({key:`viab_${c.Compound_ID}`, label:`${c.Compound_ID} — % Viability @ highest conc`, auto:'info', value: fmtN(c.PctViability)+'%'});
-  }
-  secs.push({title:'Cytotoxicity Results', icon:'🫀', items: cmpItems});
-  secs.push(manualChecks('hepatotox'));
-  return secs;
-}
-
-function qcGeneric(p) {
-  return [{ title:'Workbook Loaded', icon:'📄', items:[{key:'loaded', label:'File loaded. QC for this assay uses manual review checklist below.', auto:'pass'}, ...manualChecks(SEL).items]}];
-}
-
-// ── Manual checklist appended to all assays ──────────────────
-const MANUAL_CHECKS = {
-  plasma_stab:  ['Compound Name Match in all sheets','Check Gradient (LC method matches method file)','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','Signal / Noise ≥ 3:1','Results t½ matches Upload sheet','Controls within range'],
-  ppb_uc:       ['Compound Name Match in all sheets','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','IS Peak Area CV ≤ 25%','% Carryover ≤ 20%','Signal / Noise ≥ 3:1','Check Fu% Formulas','Check % Bound Formulas','Confirm Buffer pH 7.1–7.6'],
-  mic_binding:  ['Compound Name Match in all sheets','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','IS Peak Area CV ≤ 25%','Signal / Noise ≥ 3:1','Confirm 0.5 mg/mL Microsomes Used','Confirm Mixed Gender Pool'],
-  blood_part:   ['Compound Name Match in all sheets','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','IS CV < 15%','Signal / Noise ≥ 3:1','Check PL Formulas','Check Blood Formulas'],
-  cyp_screen:   ['Compound Name Match','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','Peak Area of Blanks negligible','% Carryover ≤ 20%','Check % Activity for Control Group','Spot Check Formulas'],
-  cyp_ic50:     ['Compound Name Match','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','Peak Area of Blanks negligible','% Carryover ≤ 20%','Check Replicate Agreement (CV<30%)','IC50 Curve looks correct','Spot Check Formulas'],
-  cyp_tdi:      ['Compound Name Match','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','Confirm 0/30 min pre-incubation conditions','Confirm ±NADPH conditions','Check control group % activity','Spot Check Formulas'],
-  ugt:          ['Compound Name Match','Check Gradient','Q1 m/z Match with MW+1','DP ≥ 30','CE ≤ 100','IS Peak Area CV ≤ 25%','IS% Recovery: 75–125%','Peak Area of Blanks negligible','Confirm UGT1A1 enzyme used','Spot Check Formulas'],
-  herg:         ['Compound Name Match','Initial Seal resistance > 100 MOhm','Access Resistance < 25 MOhm','hERG peak > 200 pA','Rundown of peak tail amplitude < 30%','Voltage protocol correct (90mV/500ms, 30mV/4.8s, −50mV/5.2s)','Check IC50 curve shape'],
-  pxr:          ['Compound Name Match','Check Formulas','Check Averages','Check DMSO control','Column Headers in Correct Order (Pharmaron format)','Confirm 48h incubation','Confirm 1 and 10 μM tested'],
-  phototox:     ['Compound Name Match','Check Formulas','Check Averages','Check DMSO control','Note any precipitation'],
-  hepatotox:    ['Compound Name Match','Check Formulas','Check Averages','Check Blank < 1000 RLU','Note precipitation if observed','Confirm 72h incubation','Tamoxifen control within range'],
-};
-
-function manualChecks(id) {
-  const checks = MANUAL_CHECKS[id] || ['Review all sheets manually','Verify compound names','Check gradient and ionization'];
-  return {
-    title: 'Manual Review Checklist',
-    icon: '📋',
-    items: checks.map((c,i) => ({key:`man_${id}_${i}`, label:c, auto:'pend', manual:true}))
-  };
-}
-
-
-// ============================================================
-// RENDER QC SECTIONS
-// ============================================================
-function renderQCSections(sections) {
-  const container = document.getElementById('qc-sections');
-  container.innerHTML = sections.map((sec, si) => `
-    <div class="sec" style="margin-bottom:10px;">
-      <div class="sec-hdr" onclick="toggleSec('qcs-${si}')">
-        <span>${sec.icon}</span>
-        <h3>${sec.title}</h3>
-        <span class="chip chip-info" id="sec-chip-${si}" style="margin-left:8px;"></span>
-        <span class="sec-tog" id="qcs-${si}-tog">▼</span>
-      </div>
-      <div class="sec-body" id="qcs-${si}">
-        <div class="qclist">
-          ${sec.items.map((item, ii) => renderQCItem(si, ii, item)).join('')}
-        </div>
-        ${sec.items.some(i=>i.manual) ? '<div style="font-size:10px;color:var(--mu);margin-top:6px;">Click to mark: Pending → ✅ Pass → ⚠️ Borderline → ❌ Fail → ➖ N/A</div>' : ''}
-      </div>
-    </div>
-  `).join('');
-  // Update section chips
-  sections.forEach((_,si) => updateSecChip(si, sections[si]));
-  // Store section data for override lookup
-  window._sections = sections;
-}
-
-function renderQCItem(si, ii, item) {
-  const key = item.key;
-  const st = QC_STATE[key] || { status: item.auto || 'pend', override: false, reason: '' };
-  const statusClass = { pass:'s-pass', warn:'s-warn', fail:'s-fail', na:'s-na', pend:'', info:'s-pass' }[st.status] || '';
-  const icons = { pass:'✅', warn:'⚠️', fail:'❌', na:'➖', pend:'◯', info:'ℹ️' };
-  const stLabels = { pass:'PASS', warn:'WARN', fail:'FAIL', na:'N/A', pend:'PENDING', info:'INFO' };
-  const stClass = { pass:'st-pass', warn:'st-warn', fail:'st-fail', na:'st-na', pend:'st-pend', info:'st-pend' }[st.status] || 'st-pend';
-  const canOverride = (st.status === 'warn' || st.status === 'fail') && !item.manual;
-  const hasOvr = st.override;
-  return `
-    <div class="qci ${statusClass}" id="qci-${si}-${ii}" onclick="cycleItem(${si},${ii})">
-      <div class="qci-ico" id="qci-ico-${si}-${ii}">${icons[st.status]||'◯'}</div>
-      <div class="qci-body">
-        <div class="qci-lbl">
-          ${item.label}
-          ${item.value ? `<span class="qci-val ${valueClass(item, st.status)}">${item.value}</span>` : ''}
-        </div>
-        ${item.note ? `<div class="qci-note">${item.note}</div>` : ''}
-        ${hasOvr ? `<div class="qci-note" style="color:var(--wa);">✏️ Override: ${st.reason || 'Manual override applied'}</div>` : ''}
-      </div>
-      <div class="qci-right">
-        <span class="stlbl ${stClass}" id="qci-st-${si}-${ii}">${stLabels[st.status]||'PENDING'}</span>
-        ${canOverride ? `<button class="ovr-btn ${hasOvr?'act':''}" onclick="event.stopPropagation();toggleOverride(${si},${ii})" title="Override flag">✏️ Override</button>` : ''}
-      </div>
-    </div>
-    <div class="ovr-pnl" id="ovr-${si}-${ii}" style="display:${hasOvr?'block':'none'};">
-      <div style="color:var(--wa);font-size:11px;font-weight:600;">⚠️ Manual Override — justify this decision:</div>
-      <textarea id="ovr-txt-${si}-${ii}" placeholder="Reason for override (required)…" onchange="saveOverrideReason(${si},${ii},this.value)">${st.reason||''}</textarea>
-      <div style="display:flex;gap:6px;margin-top:5px;">
-        <button class="btn btn-sm" style="background:rgba(63,185,80,.15);color:var(--gr);border:1px solid rgba(63,185,80,.3);" onclick="event.stopPropagation();applyOverride(${si},${ii},'pass')">✅ Override → Pass</button>
-        <button class="btn btn-sm" style="background:rgba(210,153,34,.15);color:var(--wa);border:1px solid rgba(210,153,34,.3);" onclick="event.stopPropagation();applyOverride(${si},${ii},'warn')">⚠️ Keep as Warning</button>
-        <button class="btn btn-sm btn-red" onclick="event.stopPropagation();clearOverride(${si},${ii})">✕ Cancel</button>
-      </div>
-    </div>`;
-}
-
-function valueClass(item, status) {
-  if (status === 'fail') return 'v-fail';
-  if (status === 'warn') return 'v-warn';
-  if (status === 'pass' || status === 'info') return 'v-pass';
-  return 'v-info';
-}
-
-const CYCLE = ['pend','pass','warn','fail','na'];
-const ICONS = {pass:'✅',warn:'⚠️',fail:'❌',na:'➖',pend:'◯',info:'ℹ️'};
-const STLBLS = {pass:'PASS',warn:'WARN',fail:'FAIL',na:'N/A',pend:'PENDING',info:'INFO'};
-const STCLS = {pass:'st-pass',warn:'st-warn',fail:'st-fail',na:'st-na',pend:'st-pend',info:'st-pend'};
-const QCLS = {pass:'s-pass',warn:'s-warn',fail:'s-fail',na:'s-na',pend:'',info:'s-pass'};
-
-function cycleItem(si, ii) {
-  const item = window._sections[si].items[ii];
-  const key = item.key;
-  const cur = (QC_STATE[key] || {}).status || item.auto || 'pend';
-  if ((QC_STATE[key]||{}).override) return; // don't cycle if overridden
-  // Auto items just toggle between pend/pass/warn/fail/na
-  const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
-  QC_STATE[key] = { ...QC_STATE[key], status: next };
-  updateQCItem(si, ii, next, item);
-}
-
-function updateQCItem(si, ii, status, item) {
-  const el = document.getElementById(`qci-${si}-${ii}`);
-  const ico = document.getElementById(`qci-ico-${si}-${ii}`);
-  const st = document.getElementById(`qci-st-${si}-${ii}`);
-  if (el) { el.className = `qci ${QCLS[status]||''}`; }
-  if (ico) ico.textContent = ICONS[status]||'◯';
-  if (st) { st.className = `stlbl ${STCLS[status]||'st-pend'}`; st.textContent = STLBLS[status]||'PENDING'; }
-  updateSecChip(si, window._sections[si]);
-  updateScore();
-  renderOverrideSummary();
-}
-
-function updateSecChip(si, sec) {
-  const chip = document.getElementById(`sec-chip-${si}`);
-  if (!chip || !sec) return;
-  const states = sec.items.map(item => (QC_STATE[item.key]||{}).status || item.auto || 'pend');
-  const fails = states.filter(s=>s==='fail').length;
-  const warns = states.filter(s=>s==='warn').length;
-  const passes = states.filter(s=>s==='pass'||s==='info').length;
-  const total = states.length;
-  if (fails > 0) { chip.className='chip chip-fail'; chip.textContent=`${fails} Fail`; }
-  else if (warns > 0) { chip.className='chip chip-warn'; chip.textContent=`${warns} Warn`; }
-  else if (passes === total) { chip.className='chip chip-pass'; chip.textContent='All Pass'; }
-  else { chip.className='chip chip-info'; chip.textContent=`${passes}/${total}`; }
-}
-
-// ── Overrides ────────────────────────────────────────────────
-function toggleOverride(si, ii) {
-  const pnl = document.getElementById(`ovr-${si}-${ii}`);
-  if (pnl) pnl.style.display = pnl.style.display === 'none' ? 'block' : 'none';
-}
-function saveOverrideReason(si, ii, val) {
-  const item = window._sections[si].items[ii];
-  if (!QC_STATE[item.key]) QC_STATE[item.key] = {status: item.auto || 'pend'};
-  QC_STATE[item.key].reason = val;
-}
-function applyOverride(si, ii, newStatus) {
-  const item = window._sections[si].items[ii];
-  const txt = document.getElementById(`ovr-txt-${si}-${ii}`);
-  const reason = txt ? txt.value.trim() : '';
-  if (!reason) { toast('Please enter a reason for the override', 'warn'); return; }
-  QC_STATE[item.key] = { status: newStatus, override: true, reason };
-  // Hide panel, update button styling
-  const pnl = document.getElementById(`ovr-${si}-${ii}`); if (pnl) pnl.style.display='none';
-  const btn = document.querySelectorAll(`#qci-${si}-${ii} .ovr-btn`)[0]; if (btn) btn.classList.add('act');
-  updateQCItem(si, ii, newStatus, item);
-  renderOverrideSummary();
-}
-function clearOverride(si, ii) {
-  const item = window._sections[si].items[ii];
-  if (QC_STATE[item.key]) { QC_STATE[item.key].override = false; QC_STATE[item.key].reason = ''; }
-  const pnl = document.getElementById(`ovr-${si}-${ii}`); if (pnl) pnl.style.display='none';
-  runQC(); // re-render
-}
-function renderOverrideSummary() {
-  const overrides = Object.entries(QC_STATE).filter(([k,v])=>v.override);
-  const wrap = document.getElementById('override-summary');
-  const list = document.getElementById('ovr-list');
-  if (overrides.length === 0) { wrap.classList.add('hidden'); return; }
-  wrap.classList.remove('hidden');
-  list.innerHTML = overrides.map(([k,v]) => `
-    <div class="qci" style="cursor:default;border-left:3px solid var(--wa);">
-      <span class="qci-ico">✏️</span>
-      <div class="qci-body"><div class="qci-lbl">${k}</div><div class="qci-note">Overridden to ${v.status.toUpperCase()}: ${v.reason}</div></div>
-      <span class="stlbl st-warn">OVERRIDE</span>
-    </div>`).join('');
-}
-
-// ── Score ────────────────────────────────────────────────────
-function updateScore() {
-  if (!window._sections) return;
-  const allItems = window._sections.flatMap(s=>s.items);
-  const states = allItems.map(item => (QC_STATE[item.key]||{}).status || item.auto || 'pend');
-  const total = states.length;
-  const passes = states.filter(s=>s==='pass'||s==='na'||s==='info').length;
-  const fails = states.filter(s=>s==='fail').length;
-  const warns = states.filter(s=>s==='warn').length;
-  const pct = total > 0 ? Math.round(passes/total*100) : 0;
-  const c = document.getElementById('score-c');
-  c.textContent = total > 0 ? pct+'%' : '—';
-  c.className = fails > 0 ? 'score-c score-fail' : warns > 0 ? 'score-c score-warn' : 'score-c score-pass';
-  const chips = document.getElementById('r-chips');
-  chips.innerHTML = [
-    fails>0 ? `<span class="chip chip-fail">❌ ${fails} Fail</span>` : '',
-    warns>0 ? `<span class="chip chip-warn">⚠️ ${warns} Warning</span>` : '',
-    (fails===0&&warns===0) ? `<span class="chip chip-pass">✅ ${passes} Passed</span>` : '',
-  ].join('');
-}
-
-// ============================================================
-// UPLOAD ROW BUILDERS
-// ============================================================
-function buildUploadRows(id, p) {
-  if (!p || p.error) return [];
-  switch(id) {
-    case 'plasma_stab':   return p.compounds.map(c => ({
-      'Compound_ID': c['Compound_ID']||c['compound_id']||'',
-      'batch_id': c['batch_id']||c['batch']||'',
-      'Species': c['Species']||c['species']||'',
-      'in vitro t1/2 (min)': c['in vitro t1/2 (min)']||'',
-      '% Remaining at 240 min': '',
-      'CRO': c['CRO']||'',
-      'Comment': c['Comment']||''
-    }));
-    case 'ppb_uc':        return p.compounds.map(c => ({
-      'Compound_ID': c.Compound_ID, 'batch_id': c.batch_id, 'Species': c.Species,
-      '% Bound': fmtN(c['%Bound']), '% Unbound': fmtN(c['%Unbound']),
-      '% Remaining at 0.5 hr': fmtN(c['Stab0.5']||c.Stab0_5), '% Remaining at 3.5 hr': fmtN(c['Stab3.5']||c.Stab3_5),
-      'Condition': c.Condition||'undiluted+3h', 'CRO': c.CRO||'Pharmaron'
-    }));
-    case 'mic_binding':   return p.compounds.map(c => ({
-      'Compound_ID': c.Compound_ID, 'batch_id': c.batch_id, 'Species': c.Species,
-      '% Bound': fmtN(c['%Bound']), '% Unbound': fmtN(c['%Unbound']),
-      '% Recovery': fmtN(c['%Recovery']), '% Remaining': fmtN(c.Stab5h),
-      'Condition': c.Condition||'undiluted+5h', 'CRO': c.CRO||'Pharmaron'
-    }));
-    case 'blood_part':    return p.compounds.map(c => ({
-      'Compound_ID': c.Compound_ID, 'batch_id': c.batch_id, 'Species': c.Species,
-      'Blood to plasma ratio (Kb/p)': fmtN(c.Kbp, 4), 'CRO': c.CRO||'Pharmaron'
-    }));
-    case 'cyp_screen':    return p.compounds.flatMap(c => {
-      const rows = [];
-      if (c['CYP3A-M_Inh'] !== null) rows.push({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'CYP':'CYP3A-M','% Inhibition':fmtN(c['CYP3A-M_Inh']),'Condition':'1 μM','CRO':'Pharmaron'});
-      if (c['CYP3A-T_Inh'] !== null) rows.push({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'CYP':'CYP3A-T','% Inhibition':fmtN(c['CYP3A-T_Inh']),'Condition':'1 μM','CRO':'Pharmaron'});
-      return rows;
-    });
-    case 'cyp_ic50':      return p.compounds.flatMap(c => {
-      const rows = [];
-      if (c['IC50_3AM_Mean'] !== null) rows.push({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'CYP':'CYP3A-M','IC50 (μM)':fmtN(c['IC50_3AM_Mean']),'CRO':'Pharmaron'});
-      if (c['IC50_3AT_Mean'] !== null) rows.push({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'CYP':'CYP3A-T','IC50 (μM)':fmtN(c['IC50_3AT_Mean']),'CRO':'Pharmaron'});
-      return rows;
-    });
-    case 'cyp_tdi':       return p.compounds.flatMap(c => {
-      const isoform = p.isoform || 'CYP3A-M';
-      return [{
-        'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'CYP':isoform,
-        'IC50 (0 min Pre-Incubation) (μM)': c.IC50_0min ? fmtN(c.IC50_0min) : '',
-        'IC50 (30 min Pre-Incubation without NADPH) (μM)': c.IC50_30mNoNADPH ? fmtN(c.IC50_30mNoNADPH) : '',
-        'IC50 (30 min Pre-Incubation with NADPH) (μM)': c.IC50_30mNADPH ? fmtN(c.IC50_30mNADPH) : '',
-        '% Inhibition (0 min pre-incubation @ 30μM)': c.Inh_0min ? fmtN(c.Inh_0min) : '',
-        '% Inhibition (30 min pre-incubation without NADPH @ 30μM)': c.Inh_30mNoNADPH ? fmtN(c.Inh_30mNoNADPH) : '',
-        '% Inhibition (30 min pre-incubation with NADPH @ 30μM)': c.Inh_30mNADPH ? fmtN(c.Inh_30mNADPH) : '',
-        'CRO':'Pharmaron'
-      }];
-    });
-    case 'ugt':           return p.compounds.map(c => ({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'Enzyme':'UGT1A1','IC50 (μM)':fmtN(c.IC50_UGT1A1),'CRO':'Pharmaron','Comment':''}));
-    case 'herg':          return p.compounds.map(c => ({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'hERG IC50 [μM]':fmtN(c.IC50,3),'CRO':'Pharmaron'}));
-    case 'pxr':           return p.compounds.map(c => ({
-      'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,
-      '% Viability at 1 µM': fmtN(c.Viab1uM), 'Mean Fold Induction at 1 µM': fmtN(c.FoldInd1uM,2),
-      '% of Control at 1 µM': fmtN(c.PctCtrl1uM),
-      '% Viability at 10 µM': fmtN(c.Viab10uM), 'Mean Fold Induction at 10 µM': fmtN(c.FoldInd10uM,2),
-      '% of Control at 10 µM': fmtN(c.PctCtrl10uM), 'Comment':'', 'CRO':'Pharmaron'
-    }));
-    case 'phototox':      return p.compounds.map(c => ({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id,'IC50 -Irr (μg/mL)':String(c.IC50_minusIrr),'IC50 +Irr (μg/mL)':fmtN(c.IC50_plusIrr,4),'PIF':String(c.PIF),'MPE':fmtN(c.MPE,4),'CRO':'Pharmaron','Comment':''}));
-    case 'hepatotox':     return p.compounds.map(c => ({'Compound_ID':c.Compound_ID,'batch_id':c.batch_id||String(c.Compound_ID).includes('-AA-')?c.Compound_ID.match(/AA-\d+/)?.[0]||'-':'-','Species':'Human','IC50 (μM)':String(c.IC50),'% control activity at highest concentration':fmtN(c.PctViability),'CRO':'Pharmaron','Comment':''}));
-    default: return [];
-  }
-}
-
-// ============================================================
-// UPLOAD PREVIEW
-// ============================================================
-function renderUploadPreview() {
-  const tmpl = TEMPLATES[SEL];
-  const wrap = document.getElementById('upload-preview-wrap');
-  const rowCountChip = document.getElementById('upload-row-count');
-  if (!tmpl) { wrap.innerHTML = ''; return; }
-  const rows = UPLOAD_ROWS;
-  rowCountChip.textContent = rows.length + ' data row' + (rows.length !== 1 ? 's' : '');
-  // Show first 5 rows
-  const preview = rows.slice(0, 5);
-  const cols = tmpl.cols;
-  let html = `<div class="lbl">CDD Assay: <span style="color:var(--ac);font-weight:700;">${tmpl.cdd}</span></div>`;
-  html += '<div class="scroll-x"><table class="upload-preview-tbl"><thead><tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-  for (const row of preview) {
-    html += '<tr>' + cols.map(c => `<td>${row[c] !== undefined ? row[c] : ''}</td>`).join('') + '</tr>';
-  }
-  if (rows.length === 0) {
-    html += `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--mu);padding:16px;">No data rows extracted. Will write headers only.</td></tr>`;
-  }
-  if (rows.length > 5) {
-    html += `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--mu);font-size:10px;">… ${rows.length - 5} more rows</td></tr>`;
-  }
-  html += '</tbody></table></div>';
-  wrap.innerHTML = html;
-  document.getElementById('upload-info').textContent = `Upload tab will contain ${tmpl.cols.length} columns. ${rows.length} compound rows extracted.`;
-}
-
-// ============================================================
-// DOWNLOAD FUNCTIONS
-// ============================================================
-function downloadWithUpload() {
-  if (!WB) { toast('No workbook loaded', 'warn'); return; }
-  const tmpl = TEMPLATES[SEL];
-  if (!tmpl) { toast('No template for this assay', 'warn'); return; }
-  // Remove old Upload sheet if exists
-  const idx = WB.SheetNames.indexOf('Upload');
-  if (idx > -1) { WB.SheetNames.splice(idx,1); delete WB.Sheets['Upload']; }
-  // Build upload sheet
-  const wsData = [tmpl.cols, ...UPLOAD_ROWS.map(r => tmpl.cols.map(c => r[c] !== undefined ? r[c] : ''))];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  XLSX.utils.book_append_sheet(WB, ws, 'Upload');
-  const base = FNAME.replace(/\.[^.]+$/, '');
-  XLSX.writeFile(WB, base + '_QC_upload.xlsx');
-  toast('Downloaded: ' + base + '_QC_upload.xlsx', 'pass');
-}
-
-function downloadUploadOnly() {
-  const tmpl = TEMPLATES[SEL];
-  if (!tmpl) { toast('No template for this assay', 'warn'); return; }
-  const wb2 = XLSX.utils.book_new();
-  const wsData = [tmpl.cols, ...UPLOAD_ROWS.map(r => tmpl.cols.map(c => r[c] !== undefined ? r[c] : ''))];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  XLSX.utils.book_append_sheet(wb2, ws, 'Upload');
-  const a = ASSAYS.find(x=>x.id===SEL);
-  XLSX.writeFile(wb2, (a?.name||SEL).replace(/ /g,'_') + '_upload_' + dateStr() + '.xlsx');
-  toast('Upload sheet downloaded!', 'pass');
-}
-
-function copyUploadTSV() {
-  const tmpl = TEMPLATES[SEL]; if (!tmpl) return;
-  const lines = [tmpl.cols.join('\t'), ...UPLOAD_ROWS.map(r => tmpl.cols.map(c => r[c]||'').join('\t'))];
-  navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied as TSV!', 'pass')).catch(() => toast('Copy failed', 'fail'));
-}
-
-// ============================================================
-// COMPOUND TRACKER
-// ============================================================
-function saveTK() { localStorage.setItem('dmpk_tk_v3', JSON.stringify(TRACKER)); }
-
-function addCpd() {
-  const v = document.getElementById('tk-inp').value.trim();
-  if (!v) return;
-  if (!TRACKER.cpds.includes(v)) { TRACKER.cpds.push(v); if (!TRACKER.st[v]) TRACKER.st[v]={}; saveTK(); renderTracker(); }
-  document.getElementById('tk-inp').value='';
-}
-
-function bulkAdd() {
-  const ids = document.getElementById('tk-bulk').value.split(',').map(s=>s.trim()).filter(Boolean);
-  let n=0;
-  for (const id of ids) { if (!TRACKER.cpds.includes(id)) { TRACKER.cpds.push(id); TRACKER.st[id]=TRACKER.st[id]||{}; n++; } }
-  saveTK(); renderTracker(); document.getElementById('tk-bulk').value='';
-  if (n) toast(`Added ${n} compounds`, 'pass');
-}
-
-function toggleTK(cpd, aid) { TRACKER.st[cpd][aid]=!TRACKER.st[cpd][aid]; saveTK(); renderTracker(); }
-function removeCpd(cpd) { TRACKER.cpds=TRACKER.cpds.filter(c=>c!==cpd); delete TRACKER.st[cpd]; saveTK(); renderTracker(); }
-function clearTracker() { if (!confirm('Clear all?')) return; TRACKER={cpds:[],st:{}}; saveTK(); renderTracker(); }
-
-function renderTracker() {
-  const cpds = TRACKER.cpds;
-  document.getElementById('tk-empty').classList.toggle('hidden', cpds.length>0);
-  document.getElementById('tk-tbl').style.display = cpds.length ? '' : 'none';
-  // Stats
-  const total = cpds.length * ASSAYS.length;
-  let done = 0;
-  for (const c of cpds) for (const a of ASSAYS) if (TRACKER.st[c]?.[a.id]) done++;
-  const pct = total > 0 ? Math.round(done/total*100) : 0;
-  document.getElementById('tk-stats').innerHTML = `
-    <div class="stat"><div class="stat-n" style="color:var(--cy)">${cpds.length}</div><div class="stat-l">Compounds</div></div>
-    <div class="stat"><div class="stat-n" style="color:var(--ac)">${ASSAYS.length}</div><div class="stat-l">Assays</div></div>
-    <div class="stat"><div class="stat-n" style="color:var(--gr)">${done}</div><div class="stat-l">QC'd</div></div>
-    <div class="stat"><div class="stat-n" style="color:var(--wa)">${total-done}</div><div class="stat-l">Pending</div></div>
-    <div class="stat"><div class="stat-n" style="color:var(--pu)">${pct}%</div><div class="stat-l">Complete</div><div class="pbar-w"><div class="pbar" style="width:${pct}%"></div></div></div>
-  `;
-  // Table
-  const thead = document.getElementById('tk-head');
-  thead.innerHTML = '<tr><th>Compound</th>' + ASSAYS.map(a=>`<th title="${a.name}">${a.icon}</th>`).join('') + '<th>Done</th><th></th></tr>';
-  const tbody = document.getElementById('tk-body');
-  tbody.innerHTML = cpds.map(c => {
-    const st = TRACKER.st[c]||{};
-    const cnt = ASSAYS.filter(a=>st[a.id]).length;
-    return `<tr><td>${c}</td>${ASSAYS.map(a=>`<td class="${st[a.id]?'qy':'qn'}" onclick="toggleTK('${c}','${a.id}')" title="${a.name}">${st[a.id]?'✅':'·'}</td>`).join('')}<td style="font-family:var(--mo);color:var(--ac);text-align:center;cursor:default">${cnt}/${ASSAYS.length}</td><td><button class="btn btn-red btn-sm" onclick="removeCpd('${c}')">✕</button></td></tr>`;
-  }).join('');
-}
-
-function exportTracker() {
-  const wb2 = XLSX.utils.book_new();
-  const rows = [['Compound_ID',...ASSAYS.map(a=>a.name),'Total']];
-  for (const c of TRACKER.cpds) {
-    const st = TRACKER.st[c]||{};
-    rows.push([c,...ASSAYS.map(a=>st[a.id]?'Done':''),ASSAYS.filter(a=>st[a.id]).length]);
-  }
-  XLSX.utils.book_append_sheet(wb2, XLSX.utils.aoa_to_sheet(rows), 'Tracker');
-  XLSX.writeFile(wb2, 'DMPK_QC_Tracker_'+dateStr()+'.xlsx');
-  toast('Tracker exported!','pass');
-}
-
-// ============================================================
-// CONTROLS TAB
-// ============================================================
-const CTRL_RANGES = [
-  {assay:'Microsomal Stability (Human)',      items:[{l:'Verapamil t½',r:'4–10 min'},{l:'Verapamil CLint',r:'150–300 μL/min/mg'},{l:'Raloxifene t½',r:'8–14 min'},{l:'Raloxifene CLint',r:'95–150 μL/min/mg'}]},
-  {assay:'Microsomal Stability (Mouse)',      items:[{l:'Verapamil t½',r:'2–9 min'},{l:'Verapamil CLint',r:'150–650 μL/min/mg'},{l:'Raloxifene t½',r:'10–22 min'},{l:'Raloxifene CLint',r:'60–150 μL/min/mg'}]},
-  {assay:'Microsomal Stability (Rat)',        items:[{l:'Verapamil t½',r:'2–9 min'},{l:'Verapamil CLint',r:'150–650 μL/min/mg'},{l:'Raloxifene t½',r:'5–15 min'},{l:'Raloxifene CLint',r:'60–200 μL/min/mg'}]},
-  {assay:'Microsomal Stability (Monkey)',     items:[{l:'Verapamil t½',r:'0.5–5 min'},{l:'Verapamil CLint',r:'500–1500 μL/min/mg'}]},
-  {assay:'Microsomal Stability (Dog)',        items:[{l:'Verapamil t½',r:'8–15 min'},{l:'Verapamil CLint',r:'100–250 μL/min/mg'}]},
-  {assay:'Hepatocyte Stability (Human)',      items:[{l:'Verapamil t½',r:'20–40 min'},{l:'Verapamil CLint',r:'30–80 μL/min/10⁶ cells'}]},
-  {assay:'Hepatocyte Stability (Mouse)',      items:[{l:'Verapamil t½',r:'2–9 min'},{l:'Verapamil CLint',r:'150–300 μL/min/10⁶ cells'}]},
-  {assay:'Hepatocyte Stability (Rat)',        items:[{l:'Verapamil t½',r:'2–9 min'},{l:'Verapamil CLint',r:'150–300 μL/min/10⁶ cells'}]},
-  {assay:'PPB (RED)',                         items:[{l:'Ketoconazole % Bound',r:'> 90%'},{l:'Ketoconazole % Recovery',r:'75–125%'}]},
-  {assay:'PPB (Ultracentrifugation)',         items:[{l:'Warfarin % Bound',r:'> 90%'},{l:'Warfarin % Stability @ 0.5h',r:'75–125%'},{l:'Warfarin % Stability @ 3.5h',r:'75–125%'}]},
-  {assay:'Hepatocyte Binding',                items:[{l:'Ketoconazole % Bound',r:'> 30%'},{l:'Ketoconazole % Recovery',r:'75–125%'}]},
-  {assay:'Microsome Binding',                 items:[{l:'Chlorpromazine % Bound',r:'> 75%'},{l:'Chlorpromazine % Recovery',r:'75–125%'},{l:'Chlorpromazine Stability @ 5h',r:'75–125%'}]},
-  {assay:'Blood Partitioning (Chloroquine)',  items:[{l:'Human Kb/p',r:'2–3'},{l:'Rat Kb/p',r:'2–3'},{l:'Mouse Kb/p',r:'2–3'},{l:'Monkey Kb/p',r:'2–3'},{l:'Dog Kb/p',r:'4–5'}]},
-  {assay:'Kinetic Solubility',               items:[{l:'Progesterone FaSSIF',r:'37–63 μM'},{l:'Diclofenac FaSSIF',r:'225–375 μM'},{l:'Progesterone PBS',r:'9.8–16.3 μM'},{l:'Diclofenac PBS',r:'225–375 μM'}]},
-  {assay:'LogD',                             items:[{l:'Nicardipine LogD',r:'3.6–4.9'}]},
-  {assay:'Permeability',                     items:[{l:'Metoprolol Papp A→B',r:'> 10 × 10⁻⁶ cm/s'},{l:'Metoprolol ER',r:'< 2'},{l:'Digoxin Papp A→B',r:'< 2 × 10⁻⁶ cm/s'},{l:'Digoxin ER',r:'> 10'}]},
-  {assay:'CYP Inhibition Screening',         items:[{l:'Ketoconazole Inhibition (CYP3A)',r:'> 90%'}]},
-  {assay:'CYP IC50',                         items:[{l:'Mifepristone CYP3A-M IC50',r:'3–8 μM'},{l:'Mifepristone CYP3A-T IC50',r:'3–8 μM'}]},
-  {assay:'CYP TDI (Mifepristone)',           items:[{l:'IC50 0 min',r:'3–8 μM'},{l:'IC50 30 min −NADPH',r:'3–8 μM'},{l:'IC50 30 min +NADPH',r:'0.2–0.6 μM'}]},
-  {assay:'UGT Inhibition',                   items:[{l:'Silybin IC50 (UGT1A1)',r:'1.3–2.0 μM'}]},
-  {assay:'hERG',                             items:[{l:'Cisapride IC50',r:'0.01–0.03 μM'},{l:'Hill Slope',r:'0.7–2.5'}]},
-  {assay:'PXR Activation',                   items:[{l:'Rifampicin % Viability',r:'> 90%'},{l:'Rifampicin FI @ 1 μM',r:'> 5x'},{l:'Rifampicin FI @ 10 μM',r:'> 10x'}]},
-  {assay:'Phototoxicity',                    items:[{l:'Chlorpromazine PIF',r:'40–60'},{l:'Chlorpromazine MPE',r:'0.3–0.5'},{l:'Hexachlorophene PIF',r:'0.5–2'},{l:'Hexachlorophene MPE',r:'0.0–0.1'}]},
-  {assay:'Hepatotoxicity',                   items:[{l:'Tamoxifen IC50',r:'4–8 μM'},{l:'Tamoxifen % Viability',r:'0.01–1%'}]},
-  {assay:'Plasma Stability (Human Propantheline)',items:[{l:'t½',r:'10–40 min'}]},
-  {assay:'Plasma Stability (Dog Propantheline)',  items:[{l:'t½',r:'50–150 min'}]},
-  {assay:'Plasma Stability (Rat Propantheline)',  items:[{l:'t½',r:'300–500 min'}]},
-];
-
-function renderControlsTab() {
-  const grid = document.getElementById('cv-grid');
-  grid.innerHTML = CTRL_RANGES.map(g => `
-    <div class="cv-card">
-      <div class="cv-ttl">${g.assay}</div>
-      ${g.items.map(i=>`<div class="cv-row"><span>${i.l}</span><span class="cv-rng">${i.r}</span></div>`).join('')}
-    </div>`).join('');
-}
-
-// ============================================================
-// TEMPLATES TAB
-// ============================================================
-function renderTemplates(filter='') {
-  const list = document.getElementById('tmpl-list');
-  const entries = Object.entries(TEMPLATES).filter(([id]) => {
-    const a = ASSAYS.find(x=>x.id===id);
-    return !filter || (a?.name||id).toLowerCase().includes(filter.toLowerCase());
+  let rows = allMets.filter(m => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'consensus') return (m.confidence_tier||'').toLowerCase().includes('consensus');
+    return String(m.phase) === String(activeFilter);
   });
-  list.innerHTML = entries.map(([id, tmpl]) => {
-    const a = ASSAYS.find(x=>x.id===id);
-    return `<div class="sec" style="margin-bottom:10px;">
-      <div class="sec-hdr" onclick="toggleSec('tmpl-${id}')">
-        <span>${a?.icon||'📋'}</span>
-        <h3>${tmpl.cdd.replace('[Species] ','')}</h3>
-        ${a?.isNew?'<span class="chip chip-new" style="margin-left:6px;font-size:9px;">NEW</span>':''}
-        <span class="chip chip-info" style="margin-left:8px;">${tmpl.cols.length} cols</span>
-        <span style="margin-left:8px;font-size:11px;color:var(--mu);">CDD: ${tmpl.cdd}</span>
-        <span class="sec-tog" id="tmpl-${id}-tog">▼</span>
-      </div>
-      <div class="sec-body" id="tmpl-${id}" style="display:none;">
-        <div class="scroll-x">
-          <table class="upload-preview-tbl">
-            <thead><tr>${tmpl.cols.map((_,i)=>`<th>#${i+1}</th>`).join('')}</tr></thead>
-            <tbody><tr>${tmpl.cols.map(c=>`<td>${c}</td>`).join('')}</tr></tbody>
-          </table>
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--slate-d);padding:1.5rem">No metabolites in this category</td></tr>';
+    return;
+  }
+
+  // Sort
+  if (sortBy === 'mass_shift') {
+    // Group by rounded mass shift bucket (±0.005), then sort buckets ascending
+    rows = [...rows].sort((a, b) => {
+      const sa = a.mass_shift ?? 0;
+      const sb = b.mass_shift ?? 0;
+      return sa - sb;
+    });
+  } else if (sortBy === 'probability') {
+    rows = [...rows].sort((a,b) => (b.probability||0) - (a.probability||0));
+  } else if (sortBy === 'exact_mass') {
+    rows = [...rows].sort((a,b) => (a.exact_mass||0) - (b.exact_mass||0));
+  } else if (sortBy === 'phase') {
+    rows = [...rows].sort((a,b) => (a.phase||99) - (b.phase||99));
+  }
+
+  // When grouped by mass_shift, insert group headers
+  let html = '';
+  let lastShift = null;
+  const groupByShift = sortBy === 'mass_shift';
+
+  rows.forEach((m, i) => {
+    if (groupByShift) {
+      const roundedShift = m.mass_shift !== null ? Math.round((m.mass_shift||0) * 10) / 10 : null;
+      if (roundedShift !== lastShift) {
+        lastShift = roundedShift;
+        const label = m.transformation_type || (roundedShift !== null ? `Δ ${m.mass_shift_str||'?'} Da` : 'Unknown');
+        html += `<tr class="group-header"><td colspan="9">▸ ${label}</td></tr>`;
+      }
+    }
+
+    const smilesTrunc = m.smiles.length > 22 ? m.smiles.slice(0,22)+'…' : m.smiles;
+    const exactMass = m.exact_mass !== null ? m.exact_mass.toFixed(4) : '—';
+    const atomIdx   = m.vulnerable_atom_idx !== null && m.vulnerable_atom_idx !== undefined
+                      ? `<span style="font-weight:700;color:var(--amber)">idx ${m.vulnerable_atom_idx}</span>` : '—';
+
+    html += `<tr>
+      <td style="color:var(--slate-d)">${i+1}</td>
+      <td class="formula-cell">${m.molecular_formula||'—'}</td>
+      <td class="mass-cell">${exactMass}</td>
+      <td>${msTagHTML(m.mass_shift, m.mass_shift_str)}</td>
+      <td class="transform-cell" title="${m.transformation_type||m.reaction_name}">${(m.transformation_type||m.reaction_name||'—').slice(0,30)}</td>
+      <td class="atom-cell">${atomIdx}</td>
+      <td>${badgePhase(m.phase)}</td>
+      <td style="color:var(--emerald);font-weight:600;font-size:0.70rem">${(m.probability||0).toFixed(3)}</td>
+      <td>${badgeTier(m.confidence_tier)}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+}
+
+// ── Main analysis ─────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const smiles = document.getElementById('smiles-input').value.trim();
+  if (!smiles) {
+    document.getElementById('err-banner').textContent = 'Please enter a SMILES string or load an example.';
+    show('err-banner'); return;
+  }
+  hide('err-banner'); hide('warn-banner'); hide('results');
+  document.getElementById('spinner-msg').textContent = 'Running Ensemble Consensus Engine…';
+  document.getElementById('spinner').classList.add('active');
+
+  try {
+    const res = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        smiles,
+        phase1_cycles: parseInt(document.getElementById('p1').value),
+        phase2_cycles: parseInt(document.getElementById('p2').value),
+        max_metabolites: parseInt(document.getElementById('maxm').value),
+        top_soft_spots: parseInt(document.getElementById('topn').value),
+        include_svg: false,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      const msg = err.detail || `API error ${res.status}`;
+      throw new Error(Array.isArray(msg) ? msg.map(e=>e.msg||e).join('; ') : String(msg));
+    }
+
+    const data = await res.json();
+
+    if (data.warnings?.length) {
+      document.getElementById('warn-banner').textContent = data.warnings.join(' | ');
+      show('warn-banner');
+    }
+
+    // Render SVG
+    document.getElementById('spinner-msg').textContent = 'Rendering molecule…';
+    const indices = (data.soft_spots||[]).map(s=>s.atom_index);
+    let svgData = null;
+    try {
+      const rr = await fetch(`${API}/render-soft-spots`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          smiles: data.parent.canonical_smiles,
+          highlight_indices: indices,
+          width:480, height:320,
+          highlight_color:[0.98,0.25,0.25,0.68],
+          show_scores:true,
+        }),
+      });
+      if (rr.ok) svgData = await rr.text();
+    } catch(e) {}
+
+    const p     = data.parent;
+    const stats = data.pipeline_stats||{};
+    const mets  = data.metabolites||[];
+    const spots = data.soft_spots||[];
+
+    // ── Metrics ───────────────────────────────────────────────────────────────
+    const uniqueShifts = new Set(mets.map(m=>m.mass_shift_str).filter(Boolean)).size;
+    setHTML('metrics-row', `
+      <div class="mcard"><div class="mval c-sky">${data.metabolites_total||0}</div><div class="mlbl">Metabolites</div></div>
+      <div class="mcard"><div class="mval c-em">${stats.consensus_count||0}</div><div class="mlbl">Consensus</div></div>
+      <div class="mcard"><div class="mval c-rose">${data.soft_spots_total||0}</div><div class="mlbl">Soft Spots</div></div>
+      <div class="mcard"><div class="mval c-vio">${uniqueShifts}</div><div class="mlbl">Unique Δm/z</div></div>
+      <div class="mcard"><div class="mval c-am">${data.elapsed_s?data.elapsed_s.toFixed(2)+'s':'—'}</div><div class="mlbl">Elapsed</div></div>
+    `);
+
+    // ── Left panel ────────────────────────────────────────────────────────────
+    setHTML('pipeline-stats', [
+      ['SyGMa (Rule)',  stats.sygma_total||0],
+      ['DL Emulator',   stats.dl_total||0],
+      ['Consensus',     stats.consensus_count||0],
+      ['Rule-Only',     stats.rule_only_count||0],
+      ['DL-Only',       stats.dl_only_count||0],
+    ].map(([k,v])=>`<div class="stat-row"><span class="stat-k">${k}</span><span class="stat-v">${v}</span></div>`).join(''));
+
+    setHTML('prop-grid', [
+      ['Formula',   p.molecular_formula||'—'],
+      ['MW (avg)',  p.molecular_weight ? p.molecular_weight.toFixed(2)+' Da' : '—'],
+      ['Exact mass',p.exact_mass ? p.exact_mass.toFixed(4)+' Da' : '—'],
+      ['logP',      p.logp !== undefined ? p.logp.toFixed(2) : '—'],
+      ['TPSA',      p.tpsa !== undefined ? p.tpsa.toFixed(1)+' Å²' : '—'],
+      ['HBD/HBA',   `${p.num_hbd||0}/${p.num_hba||0}`],
+    ].map(([k,v])=>`<div class="prop-item"><div class="prop-k">${k}</div><div class="prop-v">${v}</div></div>`).join(''));
+
+    setHTML('canon-smiles', p.canonical_smiles||'');
+
+    // Soft spots
+    setHTML('spot-list', spots.length ? spots.map((s,i)=>{
+      const vi = s.vulnerability_index ?? (s.score||0)*100;
+      const pct = Math.min(100,Math.round(vi));
+      return `<div class="spot-row">
+        <div class="spot-rank">${i+1}</div>
+        <div class="spot-body">
+          <div class="spot-atom">${s.atom_symbol} <span style="color:var(--slate-d)">atom ${s.atom_index}</span></div>
+          <div class="spot-rule">${(s.rule_name||'').replace(/_/g,' ')}</div>
         </div>
-        <div style="margin-top:10px;display:flex;gap:8px;">
-          <button class="btn btn-sec btn-sm" onclick="downloadTemplateOnly('${id}')">⬇️ Download Template</button>
+        <div class="spot-vi">
+          <div class="spot-vi-num">${vi.toFixed(1)}%</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
         </div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
+    }).join('') : '<p style="color:var(--slate-d);font-size:0.78rem">No soft spots identified.</p>');
+
+    // SVG
+    if (svgData) {
+      const b64 = btoa(unescape(encodeURIComponent(svgData)));
+      setHTML('mol-wrap', `<div class="mol-frame"><img src="data:image/svg+xml;base64,${b64}" width="460"/></div>`);
+    }
+    setText('dl-source-lbl', `DL: ${stats.dl_source||'—'} · engine v${data.engine_version||'—'}`);
+
+    // Parent mass bar
+    const pmb = document.getElementById('parent-mass-bar');
+    pmb.style.display = 'flex';
+    setText('pmb-exact',   p.exact_mass ? p.exact_mass.toFixed(4)+' Da' : '—');
+    setText('pmb-formula', p.molecular_formula||'—');
+    setText('pmb-mw',      p.molecular_weight ? p.molecular_weight.toFixed(2)+' Da' : '—');
+
+    // ── Metabolites table ─────────────────────────────────────────────────────
+    allMets = mets;
+    renderMetsTable();
+    show('results');
+
+  } catch(err) {
+    let msg = err.message||String(err);
+    if (msg.includes('fetch') || msg.includes('Network')) {
+      msg = `Cannot reach API at <code>${API}</code>. The Render free tier may be starting up — wait 30s and try again.`;
+    }
+    document.getElementById('err-banner').innerHTML = msg;
+    show('err-banner');
+  } finally {
+    document.getElementById('spinner').classList.remove('active');
+  }
 }
 
-function downloadTemplateOnly(id) {
-  const tmpl = TEMPLATES[id]; if (!tmpl) return;
-  const wb2 = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb2, XLSX.utils.aoa_to_sheet([tmpl.cols]), 'Upload');
-  XLSX.writeFile(wb2, id+'_template.xlsx');
-  toast('Template downloaded!','pass');
-}
-
-// ============================================================
-// UTILS
-// ============================================================
-function toggleSec(id) {
-  const el = document.getElementById(id), tog = document.getElementById(id+'-tog');
-  if (!el) return;
-  const h = el.style.display==='none'||el.style.display==='';
-  el.style.display = h ? 'block' : 'none';
-  if (tog) tog.textContent = h ? '▼' : '▶';
-}
-
-function dateStr() {
-  const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-}
-
-let _tid;
-function toast(msg, type='pass') {
-  let el = document.getElementById('_toast');
-  if (!el) { el=document.createElement('div'); el.id='_toast'; el.style.cssText='position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 18px;border-radius:7px;font-size:12px;font-weight:600;pointer-events:none;transition:opacity .3s;'; document.body.appendChild(el); }
-  const cols = {pass:'background:rgba(30,60,40,.95);color:#3fb950;border:1px solid #2d6a3d', warn:'background:rgba(50,36,10,.95);color:#d29922;border:1px solid #6a5010', fail:'background:rgba(50,20,20,.95);color:#f85149;border:1px solid #6a2020', info:'background:rgba(20,28,50,.95);color:#58a6ff;border:1px solid #1a3060'};
-  el.style.cssText += (cols[type]||cols.info);
-  el.textContent = msg; el.style.opacity='1';
-  clearTimeout(_tid); _tid=setTimeout(()=>{el.style.opacity='0';},2800);
-}
+document.getElementById('smiles-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAnalysis(); }
+});
 </script>
 </body>
 </html>

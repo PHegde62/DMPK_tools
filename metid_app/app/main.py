@@ -1,29 +1,27 @@
 """
-app/main.py — Lightweight MetID FastAPI for Render free tier.
-Only depends on: fastapi, uvicorn, pydantic, rdkit, httpx, structlog
+app/main.py — MetID FastAPI for Render free tier.
+v2.1 — includes mass spec fields in all metabolite responses.
 """
-
 from __future__ import annotations
 
 import logging
-import os
+import traceback
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import AsyncGenerator, List, Optional
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
-logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-APP_VERSION = "2.0.0-ensemble"
+APP_VERSION = "2.1.0-massspec"
 _rdkit_ready = False
 
 
-# ── SMILES validator ──────────────────────────────────────────────────────────
 def _validate_smiles(smiles: str) -> str:
     from rdkit import Chem
     stripped = smiles.strip()
@@ -32,12 +30,9 @@ def _validate_smiles(smiles: str) -> str:
     mol = Chem.MolFromSmiles(stripped)
     if mol is None:
         raise ValueError(f"Invalid SMILES: '{stripped}'")
-    if mol.GetNumHeavyAtoms() == 0:
-        raise ValueError("SMILES produced a molecule with no heavy atoms.")
     return stripped
 
 
-# ── Request / Response schemas ────────────────────────────────────────────────
 class PredictRequest(BaseModel):
     smiles: str = Field(..., min_length=1, max_length=4096)
     phase1_cycles: int = Field(default=1, ge=1, le=3)
@@ -68,32 +63,26 @@ class RenderRequest(BaseModel):
         return _validate_smiles(v)
 
 
-# ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _rdkit_ready
     logger.info(f"Starting MetID API v{APP_VERSION}")
     try:
         from rdkit import Chem
-        from rdkit.Chem import rdDepictor
+        from rdkit.Chem import rdDepictor, Descriptors
         _ = Chem.MolFromSmiles("C")
         rdDepictor.Compute2DCoords(Chem.MolFromSmiles("C"))
+        _ = Descriptors.ExactMolWt(Chem.MolFromSmiles("C"))
         _rdkit_ready = True
-        logger.info("RDKit ready")
+        logger.info("RDKit + Descriptors ready")
     except Exception as e:
         logger.error(f"RDKit warm-up failed: {e}")
     yield
     logger.info("Shutdown complete")
 
 
-# ── App factory ───────────────────────────────────────────────────────────────
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title="MetID API",
-        description="Metabolite Identification & Soft Spot Analysis",
-        version=APP_VERSION,
-        lifespan=lifespan,
-    )
+    app = FastAPI(title="MetID API", version=APP_VERSION, lifespan=lifespan)
 
     app.add_middleware(GZipMiddleware, minimum_size=512)
     app.add_middleware(
@@ -105,24 +94,21 @@ def create_app() -> FastAPI:
         max_age=600,
     )
 
-    @app.get("/health", tags=["ops"])
+    @app.get("/health")
     async def health():
         return {"status": "ok", "version": APP_VERSION}
 
-    @app.get("/ready", tags=["ops"])
+    @app.get("/ready")
     async def ready():
         if not _rdkit_ready:
-            return JSONResponse(
-                status_code=503,
-                content={"status": "not_ready", "reason": "RDKit initialising"},
-            )
+            return JSONResponse(status_code=503, content={"status": "not_ready"})
         return {"status": "ready"}
 
-    @app.post("/predict", tags=["prediction"])
+    @app.post("/predict")
     async def predict(body: PredictRequest):
-        from app.engine.metabolism import predict as engine_predict
         try:
-            result = engine_predict(
+            import app.engine.metabolism as eng
+            result = eng.predict(
                 smiles=body.smiles,
                 phase1_cycles=body.phase1_cycles,
                 phase2_cycles=body.phase2_cycles,
@@ -130,40 +116,33 @@ def create_app() -> FastAPI:
                 top_soft_spots=body.top_soft_spots,
             )
             d = result.to_dict()
-            # Add convenience counts
             mets = d.get("metabolites", [])
             d["metabolites_total"] = len(mets)
-            d["phase1_count"] = sum(1 for m in mets if m.get("phase") == 1)
-            d["phase2_count"] = sum(1 for m in mets if m.get("phase") == 2)
+            d["phase1_count"]  = sum(1 for m in mets if m.get("phase") == 1)
+            d["phase2_count"]  = sum(1 for m in mets if m.get("phase") == 2)
             d["soft_spots_total"] = len(d.get("soft_spots", []))
             return d
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
-            logger.error(f"Predict error: {e}")
-            raise HTTPException(status_code=503, detail=str(e))
+            tb = traceback.format_exc()
+            logger.error(f"Predict error: {tb}")
+            raise HTTPException(status_code=500, detail=f"{str(e)}\n\n{tb}")
 
-    @app.post("/render-soft-spots", tags=["rendering"])
+    @app.post("/render-soft-spots")
     async def render_soft_spots(body: RenderRequest):
-        from app.engine.metabolism import _find_soft_spots, _validate_and_normalise
-        from rdkit import Chem
-        from rdkit.Chem import rdDepictor
-        from rdkit.Chem.Draw import rdMolDraw2D
-
         try:
-            mol, _ = _validate_and_normalise(body.smiles)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            from rdkit import Chem
+            from rdkit.Chem import rdDepictor
+            from rdkit.Chem.Draw import rdMolDraw2D
+            import app.engine.metabolism as eng
 
-        if body.highlight_indices is not None:
-            indices = body.highlight_indices
-            scores = {i: 1.0 for i in indices}
-        else:
-            spots = _find_soft_spots(mol, top_n=body.top_soft_spots)
-            indices = [s.atom_index for s in spots]
-            scores = {s.atom_index: s.score for s in spots}
+            mol, _ = eng._validate_and_normalise(body.smiles)
 
-        try:
+            if body.highlight_indices is not None:
+                indices = body.highlight_indices
+            else:
+                spots = eng._find_soft_spots(mol, top_n=body.top_soft_spots)
+                indices = [s.atom_index for s in spots]
+
             rdDepictor.SetPreferCoordGen(True)
             rdDepictor.Compute2DCoords(mol)
 
@@ -174,11 +153,9 @@ def create_app() -> FastAPI:
                 min(1.0, g + (1.0 - g) * 0.35),
                 min(1.0, b + (1.0 - b) * 0.35),
             )
-
             highlight_set = set(indices)
             atom_color_map = {i: atom_color for i in highlight_set}
-            highlighted_bonds = []
-            bond_color_map = {}
+            highlighted_bonds, bond_color_map = [], {}
             for bond in mol.GetBonds():
                 i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
                 if i in highlight_set and j in highlight_set:
@@ -212,8 +189,9 @@ def create_app() -> FastAPI:
                 },
             )
         except Exception as e:
-            logger.error(f"Render error: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            tb = traceback.format_exc()
+            logger.error(f"Render error: {tb}")
+            raise HTTPException(status_code=500, detail=f"{str(e)}\n\n{tb}")
 
     return app
 
