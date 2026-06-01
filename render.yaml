@@ -1,30 +1,23 @@
 services:
-  # ── MetID FastAPI Backend ─────────────────────────────────────────────────
-  # This is the Python API that the static GitHub Pages frontend calls.
-  # Free tier on Render — sleeps after 15 min of inactivity, wakes in ~30s.
   - type: web
     name: metid-api
-    runtime: docker
+    runtime: python
     rootDir: metid_app
-    dockerfilePath: Dockerfile
-    # Override the default supervisord command to run FastAPI only
-    # (Streamlit is not needed — the frontend is served by GitHub Pages)
-    dockerCommand: >-
-      /opt/conda/envs/metid/bin/uvicorn app.main:app
-      --host 0.0.0.0
-      --port $PORT
-      --workers 1
-      --log-level info
-      --no-access-log
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     plan: free
     envVars:
       - key: APP_ENV
         value: production
       - key: LOG_LEVEL
         value: info
-      - key: WORKERS
-        value: "1"
       - key: CORS_ALLOW_ALL
         value: "true"
       - key: DATABASE_URL
         value: "sqlite+aiosqlite:///./metid.db"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: MPLBACKEND
+        value: Agg
+      - key: RDKIT_BACKEND
+        value: Agg
