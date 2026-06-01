@@ -71,6 +71,12 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .upload-tbl{width:100%;border-collapse:collapse;font-size:11px}
 .upload-tbl th{background:rgba(88,166,255,.1);color:var(--ac);padding:6px 9px;border:1px solid rgba(88,166,255,.2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
 .upload-tbl td{padding:6px 9px;border:1px solid rgba(48,54,61,.4);font-family:var(--mo);font-size:11px;white-space:nowrap}
+.upload-tbl td[contenteditable]{cursor:text;transition:background .1s}
+.upload-tbl td[contenteditable]:hover{background:rgba(88,166,255,.05)}
+.upload-tbl td[contenteditable]:focus{background:rgba(88,166,255,.1);outline:1px solid var(--ac);outline-offset:-1px}
+.upload-tbl tr.del-row td:first-child{position:relative}
+.del-btn{background:rgba(248,81,73,.15);border:none;color:var(--re);cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-right:4px;opacity:0;transition:opacity .15s}
+.upload-tbl tr:hover .del-btn{opacity:1}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin-bottom:16px}
 .stat{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:13px;text-align:center}
 .stat-n{font-size:24px;font-weight:700;font-family:var(--mo)}.stat-l{font-size:10px;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
@@ -174,6 +180,11 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         <span class="sec-tog" id="upload-gen-tog">▼</span>
       </div>
       <div class="sec-body" id="upload-gen">
+        <div class="flex gap-2 fw items-c" style="margin-bottom:10px;">
+          <span style="font-size:11px;color:var(--mu);">Click any cell to edit. Changes apply to all exports.</span>
+          <button class="btn btn-sec btn-sm" onclick="addUploadRow()" style="margin-left:auto;">+ Add Row</button>
+          <button class="btn btn-sec btn-sm" onclick="resetUploadRows()">↺ Reset</button>
+        </div>
         <div class="scroll-x" id="upload-preview-wrap"></div>
         <div class="flex gap-2 fw mt-3">
           <button class="btn btn-grn" onclick="downloadWithUpload()">⬇️ Download Original + Upload Sheet</button>
@@ -2644,6 +2655,10 @@ function doHepatotox(wb){
 // ─────────────────────────────────────────────────────────────
 // UPLOAD PREVIEW & DOWNLOAD
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// EDITABLE UPLOAD GRID
+// UPLOAD_ROWS is the live data store — edits mutate it directly
+// ─────────────────────────────────────────────────────────────
 function renderUploadPreview(){
   const tmpl=TEMPLATES[SEL];
   const wrap=document.getElementById('upload-preview-wrap');
@@ -2652,35 +2667,128 @@ function renderUploadPreview(){
   if(!tmpl){wrap.innerHTML='';return;}
   rc.textContent=UPLOAD_ROWS.length+' row'+(UPLOAD_ROWS.length!==1?'s':'');
   cn.textContent='CDD: '+tmpl.cdd;
-  const preview=UPLOAD_ROWS.slice(0,6);
-  let html='<table class="upload-tbl"><thead><tr>'+tmpl.cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
-  for(const row of preview)html+='<tr>'+tmpl.cols.map(c=>`<td>${row[c]!==undefined?row[c]:''}</td>`).join('')+'</tr>';
-  if(UPLOAD_ROWS.length===0)html+=`<tr><td colspan="${tmpl.cols.length}" style="text-align:center;color:var(--mu);padding:14px;">No data rows extracted</td></tr>`;
-  if(UPLOAD_ROWS.length>6)html+=`<tr><td colspan="${tmpl.cols.length}" style="text-align:center;color:var(--mu);font-size:10px;">…${UPLOAD_ROWS.length-6} more rows</td></tr>`;
+  buildEditableTable(wrap,tmpl.cols,UPLOAD_ROWS);
+}
+
+function buildEditableTable(wrap,cols,rows){
+  let html='<table class="upload-tbl"><thead><tr><th style="width:24px;"></th>';
+  html+=cols.map(c=>`<th>${c}</th>`).join('');
+  html+='</tr></thead><tbody>';
+  if(rows.length===0){
+    html+=`<tr><td></td><td colspan="${cols.length}" style="text-align:center;color:var(--mu);padding:14px;">No data — add rows manually or re-parse workbook</td></tr>`;
+  } else {
+    rows.forEach((_,ri)=>{
+      html+=`<tr data-ri="${ri}"><td style="padding:2px 4px;"><button class="del-btn" onclick="deleteUploadRow(${ri})" title="Delete row">✕</button></td>`;
+      cols.forEach(col=>{
+        const val=rows[ri][col]!==undefined?String(rows[ri][col]):'';
+        html+=`<td contenteditable="true" data-ri="${ri}" data-col="${escAttr(col)}" onblur="cellEdited(this)" onkeydown="cellKey(event,this)">${escHtml(val)}</td>`;
+      });
+      html+='</tr>';
+    });
+  }
   html+='</tbody></table>';
   wrap.innerHTML=html;
+}
+
+function escAttr(s){return s.replace(/"/g,'&quot;');}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function cellEdited(td){
+  const ri=parseInt(td.dataset.ri);
+  const col=td.dataset.col;
+  if(UPLOAD_ROWS[ri]!==undefined)UPLOAD_ROWS[ri][col]=td.textContent.trim();
+  updateRowCount();
+}
+
+function cellKey(e,td){
+  // Tab → next cell, Shift+Tab → prev cell, Enter → cell below
+  if(e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();
+    const cells=[...td.closest('table').querySelectorAll('td[contenteditable]')];
+    const i=cells.indexOf(td);
+    const cols=TEMPLATES[SEL]?.cols.length||1;
+    const next=cells[i+cols];
+    if(next)next.focus();else td.blur();
+  } else if(e.key==='Tab'){
+    e.preventDefault();
+    const cells=[...td.closest('table').querySelectorAll('td[contenteditable]')];
+    const i=cells.indexOf(td);
+    const next=e.shiftKey?cells[i-1]:cells[i+1];
+    if(next)next.focus();else td.blur();
+  }
+}
+
+function deleteUploadRow(ri){
+  UPLOAD_ROWS.splice(ri,1);
+  renderUploadPreview();
+}
+
+function addUploadRow(){
+  const tmpl=TEMPLATES[SEL];if(!tmpl)return;
+  const blank={};tmpl.cols.forEach(c=>blank[c]='');
+  // Pre-fill Compound_ID / CRO from last row if available
+  if(UPLOAD_ROWS.length>0){
+    const last=UPLOAD_ROWS[UPLOAD_ROWS.length-1];
+    if(last['CRO'])blank['CRO']=last['CRO'];
+    if(last['Species'])blank['Species']=last['Species'];
+    if(last['batch_id'])blank['batch_id']=last['batch_id'];
+  }
+  UPLOAD_ROWS.push(blank);
+  renderUploadPreview();
+  // Focus first editable cell of new row
+  setTimeout(()=>{
+    const tbl=document.querySelector('#upload-preview-wrap table');
+    if(!tbl)return;
+    const rows=tbl.querySelectorAll('tbody tr');
+    const last=rows[rows.length-1];
+    if(last){const cell=last.querySelector('td[contenteditable]');if(cell)cell.focus();}
+  },50);
+}
+
+function resetUploadRows(){
+  if(!SEL||!WB)return;
+  if(!confirm('Reset all edits and re-parse from workbook?'))return;
+  try{
+    const result=parseAndCheck(SEL,WB);
+    UPLOAD_ROWS=result.uploadRows;
+    renderUploadPreview();
+    toast('Reset to parsed values','pass');
+  }catch(e){toast('Parse error: '+e.message,'fail');}
+}
+
+function updateRowCount(){
+  const rc=document.getElementById('upload-row-count');
+  if(rc)rc.textContent=UPLOAD_ROWS.length+' row'+(UPLOAD_ROWS.length!==1?'s':'');
+}
+
+// Read live data from editable table (always synced via cellEdited)
+function getLiveRows(){
+  return UPLOAD_ROWS;
 }
 
 function downloadWithUpload(){
   if(!WB){toast('No workbook loaded','warn');return;}
   const tmpl=TEMPLATES[SEL];if(!tmpl){toast('No template for this assay','warn');return;}
+  const rows=getLiveRows();
   const idx=WB.SheetNames.indexOf('Upload');
   if(idx>-1){WB.SheetNames.splice(idx,1);delete WB.Sheets['Upload'];}
-  const ws=XLSX.utils.aoa_to_sheet([tmpl.cols,...UPLOAD_ROWS.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]);
+  const ws=XLSX.utils.aoa_to_sheet([tmpl.cols,...rows.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]);
   XLSX.utils.book_append_sheet(WB,ws,'Upload');
   XLSX.writeFile(WB,FNAME.replace(/\.[^.]+$/,'')+'_QC_upload.xlsx');
   toast('Downloaded with Upload sheet','pass');
 }
 function downloadUploadOnly(){
   const tmpl=TEMPLATES[SEL];if(!tmpl)return;
+  const rows=getLiveRows();
   const wb2=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([tmpl.cols,...UPLOAD_ROWS.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]),'Upload');
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([tmpl.cols,...rows.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]),'Upload');
   XLSX.writeFile(wb2,SEL+'_upload_'+ds()+'.xlsx');
   toast('Upload sheet downloaded','pass');
 }
 function copyTSV(){
   const tmpl=TEMPLATES[SEL];if(!tmpl)return;
-  const lines=[tmpl.cols.join('\t'),...UPLOAD_ROWS.map(r=>tmpl.cols.map(c=>r[c]||'').join('\t'))];
+  const rows=getLiveRows();
+  const lines=[tmpl.cols.join('\t'),...rows.map(r=>tmpl.cols.map(c=>r[c]||'').join('\t'))];
   navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('Copied','pass')).catch(()=>toast('Copy failed','fail'));
 }
 
