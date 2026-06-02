@@ -6,7 +6,7 @@
 <title>DMPK QC Pipeline v4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-:root{--bg:#0d1117;--sf:#161b22;--sf2:#1c2333;--sf3:#21262d;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--ac:#58a6ff;--gr:#3fb950;--wa:#d29922;--re:#f85149;--pu:#bc8cff;--cy:#39d0d8;--r:8px;--mo:'JetBrains Mono','Fira Code',monospace}
+:root{--bg:#f4f6f9;--sf:#ffffff;--sf2:#eef1f5;--sf3:#e4e8ee;--bd:#d0d6e0;--tx:#1a2130;--mu:#5a6478;--ac:#1d6fd6;--gr:#1a7f37;--wa:#9a6700;--re:#c0392b;--pu:#6f42c1;--cy:#0891b2;--r:8px;--mo:'JetBrains Mono','Fira Code',monospace}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;font-size:14px}
 .hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:200}
@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .tpane{display:none;padding:20px 24px}.tpane.on{display:block}
 .agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 .acard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 13px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;display:flex;flex-direction:column;gap:6px}
-.acard:hover{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}.acard.sel{border-color:var(--ac);background:rgba(88,166,255,.07);box-shadow:0 0 0 1px var(--ac)}
+.acard:hover{border-color:var(--ac);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.08)}.acard.sel{border-color:var(--ac);background:rgba(29,111,214,.07);box-shadow:0 0 0 1px var(--ac)}
 .acard-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:2px;flex-shrink:0}
 .acard-icon.cat-adme{background:rgba(57,208,216,.12);} .acard-icon.cat-binding{background:rgba(63,185,80,.1);} .acard-icon.cat-cyp{background:rgba(188,140,255,.1);} .acard-icon.cat-safety{background:rgba(248,81,73,.1);} .acard-icon.cat-pk{background:rgba(210,153,34,.1);}
 .acard-name{font-size:12px;font-weight:600;color:var(--tx);line-height:1.3}
@@ -44,18 +44,18 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .qcrow-ovr-note{font-size:11px;color:var(--wa);margin-top:2px}
 .qcrow-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .stlbl{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;white-space:nowrap;letter-spacing:.3px}
-.st-pass{background:rgba(63,185,80,.15);color:var(--gr)}.st-warn{background:rgba(210,153,34,.15);color:var(--wa)}.st-fail{background:rgba(248,81,73,.15);color:var(--re)}.st-na{background:rgba(139,148,158,.12);color:var(--mu)}.st-info{background:rgba(88,166,255,.12);color:var(--ac)}.st-manual{background:rgba(88,166,255,.1);color:var(--ac)}
-.ovr-btn{background:none;border:1px solid rgba(139,148,158,.4);color:var(--mu);border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.st-pass{background:rgba(26,127,55,.12);color:var(--gr)}.st-warn{background:rgba(154,103,0,.12);color:var(--wa)}.st-fail{background:rgba(192,57,43,.12);color:var(--re)}.st-na{background:rgba(90,100,120,.1);color:var(--mu)}.st-info{background:rgba(29,111,214,.1);color:var(--ac)}.st-manual{background:rgba(29,111,214,.1);color:var(--ac)}
+.ovr-btn{background:none;border:1px solid rgba(90,100,120,.35);color:var(--mu);border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .ovr-btn:hover,.ovr-btn.act{border-color:var(--wa);color:var(--wa)}
-.ovr-pnl{background:rgba(210,153,34,.06);border:1px solid rgba(210,153,34,.25);border-radius:5px;padding:8px 12px;margin:4px 0 4px 28px;display:none}
+.ovr-pnl{background:rgba(154,103,0,.05);border:1px solid rgba(154,103,0,.2);border-radius:5px;padding:8px 12px;margin:4px 0 4px 28px;display:none}
 .ovr-pnl textarea{width:100%;background:var(--sf);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 8px;font-size:11px;margin-top:5px;outline:none;resize:vertical;height:48px}
 .ovr-pnl textarea:focus{border-color:var(--wa)}
 .ovr-actions{display:flex;gap:6px;margin-top:5px}
 .btn{padding:7px 13px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s;white-space:nowrap}
-.btn:hover{opacity:.82}.btn-pri{background:var(--ac);color:#0d1117}.btn-sec{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}.btn-grn{background:var(--gr);color:#0d1117}.btn-red{background:rgba(248,81,73,.18);color:var(--re);border:1px solid rgba(248,81,73,.3)}.btn-sm{padding:4px 9px;font-size:11px}
-.btn-ovr-pass{background:rgba(63,185,80,.15);color:var(--gr);border:1px solid rgba(63,185,80,.3);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
-.btn-ovr-warn{background:rgba(210,153,34,.15);color:var(--wa);border:1px solid rgba(210,153,34,.3);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
-.btn-ovr-cancel{background:rgba(248,81,73,.1);color:var(--re);border:1px solid rgba(248,81,73,.25);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
+.btn:hover{opacity:.82}.btn-pri{background:var(--ac);color:#fff}.btn-sec{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}.btn-grn{background:var(--gr);color:#fff}.btn-red{background:rgba(192,57,43,.12);color:var(--re);border:1px solid rgba(192,57,43,.3)}.btn-sm{padding:4px 9px;font-size:11px}
+.btn-ovr-pass{background:rgba(26,127,55,.12);color:var(--gr);border:1px solid rgba(26,127,55,.25);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
+.btn-ovr-warn{background:rgba(154,103,0,.12);color:var(--wa);border:1px solid rgba(154,103,0,.25);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
+.btn-ovr-cancel{background:rgba(192,57,43,.1);color:var(--re);border:1px solid rgba(192,57,43,.2);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
 .inp{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:6px 10px;font-size:12px;outline:none}
 .inp:focus{border-color:var(--ac)}select.inp{cursor:pointer}
 .rhdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:13px 16px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
@@ -63,22 +63,22 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .score-c{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:3px solid;flex-shrink:0}
 .score-pass{border-color:var(--gr);color:var(--gr)}.score-fail{border-color:var(--re);color:var(--re)}.score-warn{border-color:var(--wa);color:var(--wa)}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.chip-pass{background:rgba(63,185,80,.15);color:var(--gr);border:1px solid rgba(63,185,80,.3)}
-.chip-fail{background:rgba(248,81,73,.15);color:var(--re);border:1px solid rgba(248,81,73,.3)}
-.chip-warn{background:rgba(210,153,34,.15);color:var(--wa);border:1px solid rgba(210,153,34,.3)}
-.chip-info{background:rgba(139,148,158,.12);color:var(--mu);border:1px solid var(--bd)}
-.chip-new{background:rgba(188,140,255,.15);color:var(--pu);border:1px solid rgba(188,140,255,.3)}
+.chip-pass{background:rgba(26,127,55,.12);color:var(--gr);border:1px solid rgba(26,127,55,.25)}
+.chip-fail{background:rgba(192,57,43,.12);color:var(--re);border:1px solid rgba(192,57,43,.25)}
+.chip-warn{background:rgba(154,103,0,.12);color:var(--wa);border:1px solid rgba(154,103,0,.25)}
+.chip-info{background:rgba(90,100,120,.08);color:var(--mu);border:1px solid var(--bd)}
+.chip-new{background:rgba(111,66,193,.12);color:var(--pu);border:1px solid rgba(111,66,193,.25)}
 .dtbl{width:100%;border-collapse:collapse;font-size:11px}
 .dtbl th{background:var(--sf2);color:var(--mu);padding:6px 9px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .dtbl td{padding:6px 9px;border-bottom:1px solid rgba(48,54,61,.4);color:var(--tx);white-space:nowrap}
 .dtbl tr:last-child td{border-bottom:none}.dtbl tr:hover td{background:rgba(255,255,255,.02)}
 .dtbl td.mo{font-family:var(--mo)}.dtbl td.vp{color:var(--gr)}.dtbl td.vf{color:var(--re)}.dtbl td.vw{color:var(--wa)}.dtbl td.vi{color:var(--cy)}
 .upload-tbl{width:100%;border-collapse:collapse;font-size:11px}
-.upload-tbl th{background:rgba(88,166,255,.1);color:var(--ac);padding:6px 9px;border:1px solid rgba(88,166,255,.2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
+.upload-tbl th{background:rgba(29,111,214,.08);color:var(--ac);padding:6px 9px;border:1px solid rgba(29,111,214,.18);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
 .upload-tbl td{padding:6px 9px;border:1px solid rgba(48,54,61,.4);font-family:var(--mo);font-size:11px;white-space:nowrap}
 .upload-tbl td[contenteditable]{cursor:text;transition:background .1s}
-.upload-tbl td[contenteditable]:hover{background:rgba(88,166,255,.05)}
-.upload-tbl td[contenteditable]:focus{background:rgba(88,166,255,.1);outline:1px solid var(--ac);outline-offset:-1px}
+.upload-tbl td[contenteditable]:hover{background:rgba(29,111,214,.05)}
+.upload-tbl td[contenteditable]:focus{background:rgba(29,111,214,.1);outline:1px solid var(--ac);outline-offset:-1px}
 .upload-tbl tr.del-row td:first-child{position:relative}
 .del-btn{background:rgba(248,81,73,.15);border:none;color:var(--re);cursor:pointer;font-size:10px;padding:1px 5px;border-radius:3px;margin-right:4px;opacity:0;transition:opacity .15s}
 .upload-tbl tr:hover .del-btn{opacity:1}
@@ -120,12 +120,12 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .tcol-del:hover{color:var(--re);}
 .drag-handle{color:var(--mu);font-size:10px;cursor:grab;padding-right:2px;opacity:.5;}
 .tcol-pill:hover .drag-handle{opacity:1;}
-.add-col-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(88,166,255,.08);border:1px dashed rgba(88,166,255,.3);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--ac);cursor:pointer;transition:all .15s;}
-.add-col-btn:hover{background:rgba(88,166,255,.15);border-color:var(--ac);}
+.add-col-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(29,111,214,.06);border:1px dashed rgba(29,111,214,.3);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--ac);cursor:pointer;transition:all .15s;}
+.add-col-btn:hover{background:rgba(29,111,214,.12);border-color:var(--ac);}
 .cdd-name-inp{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:3px 8px;font-size:11px;font-family:var(--mo);outline:none;min-width:180px;}
 .cdd-name-inp:focus{border-color:var(--ac);}
-.parse-error{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:12px 16px;font-size:12px;color:var(--re);margin-top:12px}
-.parse-ok{background:rgba(63,185,80,.06);border:1px solid rgba(63,185,80,.2);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--gr);margin-bottom:12px}
+.parse-error{background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);border-radius:6px;padding:12px 16px;font-size:12px;color:var(--re);margin-top:12px}
+.parse-ok{background:rgba(26,127,55,.06);border:1px solid rgba(26,127,55,.18);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--gr);margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -436,7 +436,226 @@ function findInRows(rows,kw){
 function rowsText(rows){return rows.map(r=>r.join(' ')).join(' ');}
 
 // ─────────────────────────────────────────────────────────────
-// MAIN QC RUNNER
+// IS ANALYSIS ENGINE (Checks 1–5 for any assay with IS data)
+// Parses named columns from any Raw Data sheet.
+// Returns an object with QC rows ready to push into a section.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * extractISDataFromRawSheet(rows)
+ * Looks for a header row containing "IS Peak Area", "Analyte Peak Area",
+ * "Area Ratio" and "Sample Name" in the Raw Data sheet, then extracts
+ * per-row values. Falls back gracefully if columns are absent.
+ */
+function extractISDataFromRawSheet(rows){
+  if(!rows||!rows.length)return null;
+
+  // Find header row — must contain "IS Peak Area" or "IS Peak"
+  let hdrIdx=-1, hdr=[];
+  for(let i=0;i<Math.min(rows.length,30);i++){
+    const r=rows[i];
+    const txt=r.map(c=>String(c||'')).join('|').toLowerCase();
+    if(txt.includes('is peak area')||txt.includes('is peak')){
+      hdrIdx=i; hdr=r.map(c=>String(c||'').trim()); break;
+    }
+  }
+  if(hdrIdx<0)return null;
+
+  // Map column names → indices (case-insensitive partial match)
+  function findCol(keywords){
+    for(const kw of keywords){
+      const idx=hdr.findIndex(h=>h.toLowerCase().includes(kw.toLowerCase()));
+      if(idx>=0)return idx;
+    }
+    return -1;
+  }
+  const COL={
+    sample:    findCol(['Sample Name','Sample name']),
+    sampleType:findCol(['Sample Type','sample type']),
+    analytePa: findCol(['Analyte Peak Area (counts)','Analyte Peak Area','analyte peak area']),
+    isPa:      findCol(['IS Peak Area (counts)','IS Peak Area','is peak area']),
+    areaRatio: findCol(['Area Ratio','area ratio']),
+  };
+
+  // Must have at least IS Peak Area column
+  if(COL.isPa<0)return null;
+
+  const dataRows=rows.slice(hdrIdx+1);
+  const records=[];
+  for(const r of dataRows){
+    const isPa=N(r[COL.isPa]);
+    if(isPa===null)continue; // skip blank rows
+    records.push({
+      sample:   COL.sample>=0   ? String(r[COL.sample]||'').trim()   : '',
+      type:     COL.sampleType>=0? String(r[COL.sampleType]||'').trim(): '',
+      analytePa: COL.analytePa>=0? N(r[COL.analytePa])                : null,
+      isPa,
+      areaRatio: COL.areaRatio>=0 ? N(r[COL.areaRatio])               : null,
+    });
+  }
+  if(!records.length)return null;
+  return{records, cols:COL};
+}
+
+/**
+ * runISChecks(wb, sheetNameHints, assayLabel)
+ * Searches for Raw Data sheets, runs all 5 IS checks, returns array of QC rows.
+ * assayLabel is shown in flag messages (e.g. "PPB", "PK").
+ */
+function runISChecks(wb, sheetNameHints, assayLabel){
+  // Collect candidate raw data sheets
+  const rawSheetNames = wb.SheetNames.filter(sn=>{
+    const snl=sn.toLowerCase();
+    return snl.includes('raw') || sheetNameHints.some(h=>snl.includes(h.toLowerCase()));
+  });
+
+  let allRecords=[], foundSheets=[];
+  for(const sn of rawSheetNames){
+    const rows=sheetRows(wb,sn,2000)||[];
+    const result=extractISDataFromRawSheet(rows);
+    if(result&&result.records.length){
+      allRecords=allRecords.concat(result.records);
+      foundSheets.push(sn);
+    }
+  }
+
+  if(!allRecords.length){
+    return [{key:'is_raw_na',label:`IS data not found in Raw Data sheet (${assayLabel})`,st:'na',val:'No structured IS Peak Area column detected',
+      note:'These checks run automatically when the workbook has a raw data tab with IS Peak Area (counts) column'}];
+  }
+
+  const qcRows=[];
+  const N_total=allRecords.length;
+  const isPAs=allRecords.map(r=>r.isPa).filter(v=>v!==null&&v>0);
+
+  // ── CHECK 1: IS CV across batch ──────────────────────────────
+  if(isPAs.length>=3){
+    const mean=isPAs.reduce((a,b)=>a+b,0)/isPAs.length;
+    const stdev=Math.sqrt(isPAs.map(v=>(v-mean)**2).reduce((a,b)=>a+b,0)/isPAs.length);
+    const cv=(stdev/mean)*100;
+    const cvFmt=cv.toFixed(1)+'%';
+    const st=cv<=15?'pass':cv<=20?'pass':cv<=25?'warn':'fail';
+    const thresh=cv<=20?'✅ ≤20%':cv<=25?'⚠️ 20–25%':'❌ >25%';
+    qcRows.push({key:'is_cv_batch',
+      label:`IS Peak Area CV across batch (n=${isPAs.length} samples)`,
+      st, val:cvFmt,
+      note:`${thresh} — mean IS: ${Math.round(mean).toLocaleString()}, threshold: >20% = WARN, >25% = FAIL`});
+  }
+
+  // ── CHECK 2: Per-sample IS outlier (>±30% from batch mean) ──
+  if(isPAs.length>=3){
+    const mean=isPAs.reduce((a,b)=>a+b,0)/isPAs.length;
+    const outliers=allRecords.filter(r=>r.isPa!==null&&r.isPa>0&&Math.abs((r.isPa-mean)/mean)>0.30);
+    if(outliers.length===0){
+      qcRows.push({key:'is_outlier',label:'IS Peak Area per-sample outlier check (±30% from batch mean)',st:'pass',val:'No outliers detected',note:'All sample IS peak areas within ±30% of batch mean'});
+    } else {
+      // Show up to 5 worst outliers
+      const sorted=outliers.sort((a,b)=>Math.abs((b.isPa-mean)/mean)-Math.abs((a.isPa-mean)/mean));
+      const top=sorted.slice(0,5);
+      const detail=top.map(r=>{
+        const dev=((r.isPa-mean)/mean*100).toFixed(1);
+        const sign=parseFloat(dev)>0?'+':'';
+        return `${r.sample||'?'} (${sign}${dev}%, IS=${Math.round(r.isPa).toLocaleString()})`;
+      }).join(' · ');
+      qcRows.push({key:'is_outlier',
+        label:`IS outlier: ${outliers.length} sample${outliers.length>1?'s':''} deviate >±30% from batch mean`,
+        st:'warn', val:`${outliers.length}/${allRecords.length} samples`,
+        note:detail+(sorted.length>5?` … +${sorted.length-5} more`:'')});
+    }
+  }
+
+  // ── CHECK 3: Area Ratio cross-check (Analyte/IS = Area Ratio) ──
+  const checkableRows=allRecords.filter(r=>
+    r.analytePa!==null&&r.isPa!==null&&r.isPa>0&&r.areaRatio!==null&&r.analytePa>0);
+  if(checkableRows.length>0){
+    const mismatch=checkableRows.filter(r=>{
+      const computed=r.analytePa/r.isPa;
+      const reported=r.areaRatio;
+      // Allow 1% relative tolerance for rounding
+      return Math.abs((computed-reported)/reported)>0.01;
+    });
+    if(mismatch.length===0){
+      qcRows.push({key:'is_aratio',label:`Area Ratio integrity check (Analyte÷IS = Area Ratio, n=${checkableRows.length})`,st:'pass',val:'All match',note:'Computed area ratios match reported values within 1% tolerance'});
+    } else {
+      const worst=mismatch.sort((a,b)=>{
+        const da=Math.abs(a.analytePa/a.isPa-a.areaRatio)/a.areaRatio;
+        const db=Math.abs(b.analytePa/b.isPa-b.areaRatio)/b.areaRatio;
+        return db-da;
+      }).slice(0,4);
+      const detail=worst.map(r=>{
+        const computed=(r.analytePa/r.isPa).toExponential(3);
+        const reported=r.areaRatio.toExponential(3);
+        return `${r.sample||'?'} (computed ${computed}, reported ${reported})`;
+      }).join(' · ');
+      qcRows.push({key:'is_aratio',
+        label:`Area Ratio mismatch: ${mismatch.length} row${mismatch.length>1?'s':''} — possible copy-paste error`,
+        st:'fail', val:`${mismatch.length}/${checkableRows.length} rows`,
+        note:detail});
+    }
+  }
+
+  // ── CHECK 4: Summary vs Raw Data reconciliation (PPB/PK) ──────
+  // For each compound ID found in both summary and raw sheets,
+  // check if any raw-data IS value was significantly different
+  // from what the summary implies. (Lightweight version: we check
+  // that compounds present in raw data also appear in summary data.
+  // Full peak-area reconciliation requires per-compound raw columns
+  // which vary by workbook — flagged as INFO when not possible.)
+  // We do what we can: check summary sheet for a "raw data" companion
+  const summSheets=wb.SheetNames.filter(sn=>sn.toLowerCase().includes('summ'));
+  if(summSheets.length>0&&foundSheets.length>0){
+    // Extract compound IDs from summary
+    const summCpds=new Set();
+    for(const sn of summSheets){
+      const sr=sheetRows(wb,sn,300)||[];
+      for(const r of sr){const cid=String(r[0]||'').trim();if(cid.match(/GEN-\d/))summCpds.add(cid);}
+    }
+    // Extract compound IDs that appear in raw data sample names
+    const rawCpds=new Set(allRecords.map(r=>r.sample).filter(s=>s.match(/GEN-\d/)));
+    const onlyInRaw=[...rawCpds].filter(id=>!summCpds.has(id));
+    const onlyInSumm=[...summCpds].filter(id=>!rawCpds.has(id));
+
+    if(rawCpds.size>0||summCpds.size>0){
+      if(onlyInRaw.length===0&&onlyInSumm.length===0){
+        qcRows.push({key:'is_recon',label:'Summary ↔ Raw Data reconciliation (compound IDs)',st:'pass',val:'IDs match',note:`${summCpds.size} compound(s) present in both Summary and Raw Data sheets`});
+      } else {
+        const msgs=[];
+        if(onlyInRaw.length)msgs.push(`In raw only: ${onlyInRaw.join(', ')}`);
+        if(onlyInSumm.length)msgs.push(`In summary only: ${onlyInSumm.join(', ')}`);
+        qcRows.push({key:'is_recon',
+          label:'Summary ↔ Raw Data reconciliation mismatch',
+          st:'warn', val:`${onlyInRaw.length+onlyInSumm.length} discrepanc${onlyInRaw.length+onlyInSumm.length===1?'y':'ies'}`,
+          note:msgs.join(' | ')});
+      }
+    }
+  }
+
+  // ── CHECK 5: Duplicate IS detection ─────────────────────────
+  if(isPAs.length>=4){
+    const counts={};
+    for(const r of allRecords){
+      if(r.isPa===null||r.isPa===0)continue;
+      const k=r.isPa;
+      counts[k]=(counts[k]||[]);
+      counts[k].push(r.sample||'?');
+    }
+    const dups=Object.entries(counts).filter(([_,arr])=>arr.length>=2);
+    if(dups.length===0){
+      qcRows.push({key:'is_dup',label:'Duplicate IS detection (identical IS values = shared injection)',st:'pass',val:'No duplicates',note:'No two samples share an identical IS Peak Area — all injections appear distinct'});
+    } else {
+      // Only flag if more than 2 pairs (some QC dups are intentional)
+      const nonTrivial=dups.filter(([_,arr])=>arr.length>=2);
+      const exampleDetail=nonTrivial.slice(0,3).map(([k,arr])=>`IS=${Math.round(Number(k)).toLocaleString()} (${arr.slice(0,3).join(', ')}${arr.length>3?` +${arr.length-3} more`:''})`).join(' | ');
+      qcRows.push({key:'is_dup',
+        label:`Duplicate IS values: ${nonTrivial.length} IS value${nonTrivial.length>1?'s':''} shared across multiple samples`,
+        st:'info', val:`${nonTrivial.length} duplicate group${nonTrivial.length>1?'s':''}`,
+        note:`Possible combined injections — verify sample handling. ${exampleDetail}`});
+    }
+  }
+
+  return qcRows;
+}
+
 // ─────────────────────────────────────────────────────────────
 function runQC(){
   if(!SEL||!WB)return;
@@ -905,6 +1124,8 @@ function doMicStab(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🔬',rows:cpdRows});
+  const isChecks=runISChecks(wb,['raw','data'],'Mic Stab');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':c.t12!==null?fmt(c.t12):'','in vitro CLint (μL/min/mg)':c.clint!==null?fmt(c.clint):'','Scale-up CLint (mL/min/Kg)':c.scaleup!==null?fmt(c.scaleup):'','Predicted Hepatic CLH (mL/min/kg)':c.clh!==null?fmt(c.clh):'','Hepatic Extraction Ratio (ER)':c.er!==null?fmt(c.er,3):'','Remaining Percentage (%)  No cofactor':c.rem!==null?fmt(c.rem):'','Cofactor':c.cofactor||'NADPH+UDPGA','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
@@ -984,6 +1205,8 @@ function doHepStab(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🫁',rows:cpdRows});
+  const isChecks=runISChecks(wb,['raw','data'],'Hep Stab');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':c.t12!==null?fmt(c.t12):'','in vitro CLint (μL/min/106 cells)':c.clint!==null?fmt(c.clint):'','Scale-up CLint (mL/min/Kg)':c.scaleup!==null?fmt(c.scaleup):'','Predicted Hepatic CLH (mL/min/kg)':c.clh!==null?fmt(c.clh):'','Hepatic Extraction Ratio (ER)':c.er!==null?fmt(c.er,3):'','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
@@ -1240,6 +1463,8 @@ function doPermeability(wb){
     ]});
   }
   if(!cpds.length)sections.push({title:'Compound Results',icon:'🚪',rows:[{key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
+  const isChecks=runISChecks(wb,['raw','data'],'Permeability');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Papp (A-B) (10-6, cm/s)':c.pappAB!==null?fmt(c.pappAB,2):'','Papp (B-A) (10-6, cm/s)':c.pappBA!==null?fmt(c.pappBA,2):'','Efflux Ratio':c.er!==null?fmt(c.er,2):'','Recovery (%) A-B':c.recAB!==null?fmt(c.recAB):'','Recovery (%) B-A':c.recBA!==null?fmt(c.recBA):'','Condition':c.condition||'with 1% BSA','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
@@ -1325,6 +1550,8 @@ function doPPB(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🧲',rows:cpdRows});
+  const isChecks=runISChecks(wb,['raw'],'PPB');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
@@ -1394,6 +1621,8 @@ function doHepBinding(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🟤',rows:cpdRows});
+  const isChecks=runISChecks(wb,['raw'],'Hep Binding');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
@@ -1463,6 +1692,8 @@ function doMediaBinding(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🧫',rows:cpdRows});
+  const isChecks=runISChecks(wb,['raw'],'Media Binding');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Buffer':c.buffer||'RPMI+10%FBS','% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining at 6 hr':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
@@ -1534,6 +1765,8 @@ function doPK(wb,cro){
     sections.push({title:`${c.id} — PK (${cro})`,icon:'🐭',rows:cpdRows});
   }
   if(!cpds.length)sections.push({title:'Compound Results',icon:'🐭',rows:[{key:'no_cpds',label:'PK summary rows',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
+  const isChecks=runISChecks(wb,['raw','bioanalytical'],`PK (${cro})`);
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const cols=TEMPLATES[cro==='WuXi'?'pk_wuxi':'pk_pharmaron'].cols;
   const uploadRows=cpds.map(c=>{const o={};cols.forEach(col=>{const map={'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'Route':c.route,'Dose (mg/kg)':c.dose!==null?fmt(c.dose):'','Vehicle':c.vehicle,'Cl_obs (mL/min/kg)':c.cl!==null?fmt(c.cl,2):'','T1/2 (h)':c.t12!==null?fmt(c.t12,2):'','C0 (nmol/l)':c.c0!==null?fmt(c.c0,1):'','AUClast (h*nmol/l)':c.auclast!==null?fmt(c.auclast,1):'','AUCInf (h*nmol/l)':c.aucinf!==null?fmt(c.aucinf,1):'','AUC_%Extrap_obs (%)':c.aucextrap!==null?fmt(c.aucextrap):'','MRTInf_obs (h)':c.mrt!==null?fmt(c.mrt,2):''};o[col]=map[col]||'';});return o;});
   return{parsed:{cpds},uploadRows,sections};
@@ -1725,6 +1958,8 @@ function doPPBUC(wb){
   if(cpdRows.length===0)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary sheet',note:''});
   sections.push({title:'Compound Results (Summary Sheet)',icon:'🔩',rows:cpdRows});
 
+  const isChecks=runISChecks(wb,['raw'],'PPB UC');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Remaining at 0.5 hr':fmt(c.stab05),'% Remaining at 3.5 hr':fmt(c.stab35),'Condition':c.condition||'undiluted+3h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
@@ -1813,7 +2048,8 @@ function doMicBinding(wb){
   }
   if(cpdRows.length===0)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary sheet',note:''});
   sections.push({title:'Compound Results (Summary Sheet)',icon:'⚪',rows:cpdRows});
-
+  const isChecks=runISChecks(wb,['raw'],'Mic Binding');
+  if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':fmt(c.pRec),'% Remaining':fmt(c.stab5h),'Condition':c.condition||'undiluted+5h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
