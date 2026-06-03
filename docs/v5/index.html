@@ -1107,55 +1107,108 @@ function getReportInfo(wb){
   };
 }
 
-// Bioanalytical: for Pharmaron CYP/UGT/hERG format (Q1/Q3/DP/CE in cols 2-5)
+// Bioanalytical: for Pharmaron CYP/UGT/hERG format (Q1/Q3/DP/CE)
+// Compound ID may be in col 0 or col 1 depending on workbook version
 function getBioanalytical_CYPS(wb){
-  const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'bioanalysis',80)||[];
-  const cpds=[];
-  for(const r of rows){
-    if(String(r[1]||'').match(/GEN-\d/)){
-      const cid=String(r[1]).trim();
-      cpds.push({id:cid,q1:N(r[2]),q3:N(r[3]),dp:N(r[4]),ce:N(r[5])});
-    }
-  }
-  return cpds;
-}
-
-// Bioanalytical: for Pharmaron PPB/Mic/BP format (Q1/Q3 in cols 4-5, no DP/CE)
-function getBioanalytical_PPB(wb){
-  // PPB/Mic Binding format: CompoundID | Batch | Species | Ionspray | Q1 | Q3 (no DP/CE)
-  // Blood Part format:      CompoundID | Batch | Q1 | Q3 | DP | CE
-  // Detect by checking header row for "Q1" position
-  const rows=sheetRows(wb,'Bioanalytical',80)||[];
-  const cpds=[];
-  // Find header row to detect column layout
-  let q1col=4,q3col=5,dpcol=null,cecol=null;
-  for(const r of rows){
-    const txt=r.map(c=>String(c||'').toLowerCase()).join('|');
-    if(txt.includes('q1')){
-      // find which col has Q1
-      const idx=r.findIndex(c=>String(c||'').toLowerCase().includes('q1'));
-      if(idx>=0){q1col=idx;q3col=idx+1;
-        // check if DP is also present
-        const dpidx=r.findIndex(c=>String(c||'').toLowerCase().includes('dp'));
-        if(dpidx>=0){dpcol=dpidx;cecol=dpidx+1;}
-      }
+  const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'Bioanalysis',80)||sheetRows(wb,'Method',80)||[];
+  if(!rows.length) return [];
+  // Detect header row to find column positions for Q1, Q3, DP, CE
+  let q1col=2,q3col=3,dpcol=4,cecol=5,idcol=1;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const r=rows[i];
+    const txt=r.map(c=>String(c||'').toLowerCase());
+    if(txt.some(c=>c.includes('q1')||c.includes('q3'))){
+      const q1i=txt.findIndex(c=>c.includes('q1'));
+      const q3i=txt.findIndex(c=>c.includes('q3'));
+      const dpi=txt.findIndex(c=>c==='dp'||c.includes('declustering'));
+      const cei=txt.findIndex(c=>c==='ce'||c.includes('collision'));
+      if(q1i>=0)q1col=q1i;
+      if(q3i>=0)q3col=q3i;
+      if(dpi>=0)dpcol=dpi;
+      if(cei>=0)cecol=cei;
       break;
     }
   }
+  const cpds=[];
   for(const r of rows){
-    if(String(r[0]||'').match(/GEN-\d/)){
-      const cid=String(r[0]).trim();
-      cpds.push({id:cid,batch:String(r[1]||'').trim(),
-        q1:N(r[q1col]),q3:N(r[q3col]),
-        dp:dpcol!==null?N(r[dpcol]):null,
-        ce:cecol!==null?N(r[cecol]):null});
-    }
+    // Check col 0 and col 1 for GEN- pattern
+    const c0=String(r[0]||'').trim();
+    const c1=String(r[1]||'').trim();
+    const cid=c0.match(/GEN-\d/)?c0:c1.match(/GEN-\d/)?c1:null;
+    if(!cid)continue;
+    cpds.push({id:cid,q1:N(r[q1col]),q3:N(r[q3col]),dp:N(r[dpcol]),ce:N(r[cecol])});
   }
   return cpds;
 }
 
-// Helper: find text in rows, return pass/fail row object
-function chk(label, txt, searchTerm, passMsg, failMsg, extraNote){
+// Bioanalytical: for Pharmaron PPB/Mic/BP format (Q1/Q3 positions vary)
+function getBioanalytical_PPB(wb){
+  const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'Bioanalysis',80)||sheetRows(wb,'Method',80)||[];
+  if(!rows.length) return [];
+  // Find header row to detect Q1 column position
+  let q1col=4,q3col=5,dpcol=null,cecol=null;
+  for(const r of rows){
+    const txt=r.map(c=>String(c||'').toLowerCase());
+    if(txt.some(c=>c.includes('q1'))){
+      const q1i=txt.findIndex(c=>c.includes('q1'));
+      if(q1i>=0){q1col=q1i;q3col=q1i+1;}
+      const dpi=txt.findIndex(c=>c==='dp'||c.includes('declustering'));
+      const cei=txt.findIndex(c=>c==='ce'||c.includes('collision'));
+      if(dpi>=0){dpcol=dpi;cecol=cei>=0?cei:dpi+1;}
+      break;
+    }
+  }
+  const cpds=[];
+  for(const r of rows){
+    const c0=String(r[0]||'').trim();
+    const c1=String(r[1]||'').trim();
+    const cid=c0.match(/GEN-\d/)?c0:c1.match(/GEN-\d/)?c1:null;
+    if(!cid)continue;
+    const batchCol=c0.match(/GEN-\d/)?1:2;
+    cpds.push({id:cid,batch:String(r[batchCol]||'').trim(),
+      q1:N(r[q1col]),q3:N(r[q3col]),
+      dp:dpcol!==null?N(r[dpcol]):null,
+      ce:cecol!==null?N(r[cecol]):null});
+  }
+  return cpds;
+}
+
+// Helper: extract IS CV from rows, checking all columns
+// Works for any Pharmaron format regardless of where %CV label sits
+function extractISCV(rows){
+  if(!rows||!rows.length)return null;
+  for(const r of rows){
+    const fullTxt=r.map(c=>String(c||'')).join(' ');
+    // Priority 1: explicit IS %CV label anywhere in row
+    if(fullTxt.match(/IS\s*%\s*CV|IS.*peak.*%CV/i)){
+      const nums=r.map(c=>N(c)).filter(v=>v!==null&&v>=0&&v<=100);
+      if(nums.length)return nums[0];
+    }
+    // Priority 2: %CV in first 8 columns (not R2/slope row)
+    const txt8=r.slice(0,8).map(c=>String(c||'')).join(' ');
+    if(txt8.match(/%CV/i)&&!txt8.match(/R[²2]|slope|t1\/2|clint/i)){
+      const idx=r.findIndex(c=>String(c||'').match(/%CV/i));
+      if(idx>=0){const v=N(r[idx+1]);if(v!==null&&v>=0&&v<=100)return v;}
+    }
+    // Priority 3: CV(Fu%) or CV(IS) labels
+    if(fullTxt.match(/CV\(Fu%\)|CV\(IS\)|CV.*IS/i)){
+      const idx=r.findIndex(c=>String(c||'').match(/CV\(Fu%\)|CV\(IS\)|%CV/i));
+      if(idx>=0){const v=N(r[idx+1]);if(v!==null&&v>=0&&v<=100)return v;}
+    }
+  }
+  return null;
+}
+
+// Helper: get IS CV scanning all Raw Data sheets in a workbook
+function extractISCVFromWB(wb, extraSheets=[]){
+  const sheetNames=[...wb.SheetNames.filter(s=>s.toLowerCase().includes('raw')||s.toLowerCase().includes('data')),...extraSheets];
+  for(const sn of [...new Set(sheetNames)]){
+    const rows=sheetRows(wb,sn,300)||[];
+    const cv=extractISCV(rows);
+    if(cv!==null)return cv;
+  }
+  return null;
+}
   const found=typeof searchTerm==='function'?searchTerm(txt):txt.includes(searchTerm);
   return{
     label,
@@ -1198,13 +1251,12 @@ function doMicStab(wb){
   const bioRows=getBioanalytical_CYPS(wb);
   const {cpds,ctrl}=parseSummaryStability(wb);
 
-  // Raw data: IS CV, carryover, SNR, blank peak areas
   const rawRows=sheetRows(wb,'Raw Data',300)||sheetRows(wb,'Data',300)||[];
-  let isCv=null,r2=null,carryover=null,snr=null;
+  let r2=null,carryover=null,snr=null;
+  const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,4).join(' ');
-    if(txt.includes('%CV')||txt.includes('IS %CV')){const v=N(r[r.findIndex(c=>String(c).match(/%CV/i))+1]);if(v!==null)isCv=v;}
-    if(txt.includes('R2')||txt.includes('R²')){const v=N(r[r.findIndex(c=>String(c).match(/R2|R²/i))+1]);if(v!==null)r2=v;}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
+    if(txt.match(/R2|R²/i)){const i=r.findIndex(c=>String(c||'').match(/R2|R²/i));if(i>=0&&N(r[i+1])!==null)r2=N(r[i+1]);}
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
     if(txt.toLowerCase().includes('signal')||txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)snr=Math.min(...v.filter(x=>x>0));}
   }
@@ -1285,11 +1337,11 @@ function doHepStab(wb){
   const {cpds,ctrl}=parseSummaryStability(wb);
 
   const rawRows=sheetRows(wb,'Raw Data',300)||[];
-  let isCv=null,r2=null,carryover=null,snr=null;
+  let r2=null,carryover=null,snr=null;
+  const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,4).join(' ');
-    if(txt.match(/IS %CV|%CV/i)){const i=r.findIndex(c=>String(c).match(/%CV/i));if(i>=0&&N(r[i+1])!==null)isCv=N(r[i+1]);}
-    if(txt.match(/R2|R²/i)){const i=r.findIndex(c=>String(c).match(/R2|R²/i));if(i>=0&&N(r[i+1])!==null)r2=N(r[i+1]);}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
+    if(txt.match(/R2|R²/i)){const i=r.findIndex(c=>String(c||'').match(/R2|R²/i));if(i>=0&&N(r[i+1])!==null)r2=N(r[i+1]);}
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
     if(txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
   }
@@ -1379,10 +1431,10 @@ function doSolubility(wb){
     else cpds.push({id:cid,batch:String(r[1]||'').trim(),buffer:String(r[3]||r[2]||'PBS'),sol:solPBS,solStr:String(r[2]||r[3]||''),faSSIF:solFaSSIF,feSSIF:solFeSSIF,faSSGF:solFaSSGF,comment:String(r[r.length-1]||'')});
   }
   const rawRows=sheetRows(wb,'Raw Data',200)||sheetRows(wb,'Data',200)||[];
-  let isCv=null,snr=null,carry=null,blankPeak=null;
+  let snr=null,carry=null,blankPeak=null;
+  const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,4).join(' ');
-    if(txt.match(/IS %CV|%CV/i)){const i=r.findIndex(c=>String(c).match(/%CV/i));if(i>=0&&N(r[i+1])!==null)isCv=N(r[i+1]);}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
     if(txt.toLowerCase().includes('blank')){const v=N(r[2])||N(r[3]);if(v!==null&&v<100000)blankPeak=v;}
     if(txt.match(/\bSNR\b|noise/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carry=Math.max(...v);}
@@ -1435,7 +1487,7 @@ function doSolubility(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'🧊',rows:cpdRows});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Solubility (μM)':c.solStr||fmt(c.sol),'CRO':'Pharmaron','Comment':c.comment||''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Solubility (μM)':c.solStr||fmt(c.sol),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1460,10 +1512,10 @@ function doLogD(wb){
     else cpds.push(o);
   }
   const rawRows=sheetRows(wb,'Raw Data',200)||[];
-  let isCv=null,snr=null,carry=null;
+  let snr=null,carry=null;
+  const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,4).join(' ');
-    if(txt.match(/IS %CV|%CV/i)){const i=r.findIndex(c=>String(c).match(/%CV/i));if(i>=0&&N(r[i+1])!==null)isCv=N(r[i+1]);}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
     if(txt.match(/\bSNR\b|noise/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carry=Math.max(...v);}
   }
@@ -1507,7 +1559,7 @@ function doLogD(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'📐',rows:cpdRows});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'LogD':c.mean!==null?fmt(c.mean,2):'','CRO':'Pharmaron','Comment':c.comment||''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'LogD':c.mean!==null?fmt(c.mean,2):'','CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1532,10 +1584,10 @@ function doPermeability(wb){
     else cpds.push(o);
   }
   const rawRows=sheetRows(wb,'Raw Data',300)||[];
-  let isCv=null,carryAB=null,carryBA=null,snr=null,teerAB=null,teerBA=null,lyAB=null,lyBA=null;
+  let carryAB=null,carryBA=null,snr=null,teerAB=null,teerBA=null,lyAB=null,lyBA=null;
+  const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,5).join(' ');
-    if(txt.match(/IS %CV|%CV/i)){const i=r.findIndex(c=>String(c).match(/%CV/i));if(i>=0&&N(r[i+1])!==null)isCv=N(r[i+1]);}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
     if(txt.toLowerCase().includes('teer')&&txt.toLowerCase().includes('a-b')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)teerAB=Math.min(...v);}
     if(txt.toLowerCase().includes('teer')&&txt.toLowerCase().includes('b-a')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)teerBA=Math.min(...v);}
     if(txt.toLowerCase().includes('lucifer')||txt.toLowerCase().includes('ly')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>=0&&v<10);if(v.length){lyAB=v[0]||lyAB;lyBA=v[1]||lyBA;}}
@@ -1649,16 +1701,8 @@ function doPPB(wb){
   }
   const controls=allRows.filter(r=>r.id.match(/Ketoconazole|Warfarin/i));
   const cpds=allRows.filter(r=>r.id.match(/GEN-/));
-  // IS CV from raw data
-  let isCV=null;
-  for(const sn of wb.SheetNames.filter(s=>s.toLowerCase().includes('raw'))){
-    const rr=sheetRows(wb,sn,200)||[];
-    for(const r of rr){
-      const idx=r.findIndex(c=>String(c).match(/CV.*Fu|Fu.*CV|IS.*CV|%CV/i));
-      if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}
-    }
-    if(isCV!==null)break;
-  }
+  // IS CV from raw data — scan all Raw Data sheets
+  const isCV=extractISCVFromWB(wb);
 
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
@@ -1735,12 +1779,7 @@ function doHepBinding(wb){
   }
   const controls=allRows.filter(r=>r.id.match(/Ketoconazole/i));
   const cpds=allRows.filter(r=>r.id.match(/GEN-/));
-  let isCV=null;
-  for(const sn of wb.SheetNames.filter(s=>s.toLowerCase().includes('raw'))){
-    const rr=sheetRows(wb,sn,200)||[];
-    for(const r of rr){const idx=r.findIndex(c=>String(c).match(/CV.*Fu|Fu.*CV|%CV/i));if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}}
-    if(isCV!==null)break;
-  }
+  const isCV=extractISCVFromWB(wb);
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
     {key:'rn',label:'Report Number',st:'info',val:rpt.reportNum||'—',note:''},
@@ -1806,12 +1845,7 @@ function doMediaBinding(wb){
   }
   const controls=allRows.filter(r=>r.id.match(/Ketoconazole|Warfarin/i));
   const cpds=allRows.filter(r=>r.id.match(/GEN-/));
-  let isCV=null;
-  for(const sn of wb.SheetNames.filter(s=>s.toLowerCase().includes('raw'))){
-    const rr=sheetRows(wb,sn,200)||[];
-    for(const r of rr){const idx=r.findIndex(c=>String(c).match(/CV.*Fu|Fu.*CV|%CV/i));if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}}
-    if(isCV!==null)break;
-  }
+  const isCV=extractISCVFromWB(wb);
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
     {key:'rn',label:'Report Number',st:'info',val:rpt.reportNum||'—',note:''},
@@ -1874,11 +1908,11 @@ function doPK(wb,cro){
       cl:N(r[6]),t12:N(r[7]),c0:N(r[8]),auclast:N(r[9]),aucinf:N(r[10]),aucextrap:N(r[11]),mrt:N(r[12]),vss:N(r[13])});
   }
   // Bioanalytical IS CV from raw data
-  let isCV=null,carry=null,snr=null;
+  const isCV=extractISCVFromWB(wb,['Bioanalytical']);
+  let carry=null,snr=null;
   const rawRows=sheetRows(wb,'Raw Data',300)||sheetRows(wb,'Bioanalytical',300)||[];
   for(const r of rawRows){
-    const txt=r.slice(0,4).join(' ');
-    if(txt.match(/IS.*CV|%CV/i)){const i=r.findIndex(c=>String(c).match(/%CV/i));if(i>=0&&N(r[i+1])!==null)isCV=N(r[i+1]);}
+    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carry=Math.max(...v);}
     if(txt.match(/\bSNR\b|noise/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
   }
@@ -1945,11 +1979,7 @@ function doPlasmaStab(wb){
   }
 
   // IS %CV — scan Results then Raw Data
-  let isCv=null;
-  for(const r of [...resultRows,...rawRows]){
-    const i=r.findIndex(c=>String(c).includes('%CV'));
-    if(i>=0&&N(r[i+1])!==null){isCv=N(r[i+1]);break;}
-  }
+  const isCv=extractISCV([...resultRows,...rawRows])??extractISCVFromWB(wb);
 
   // Extract Q1/Q3 from Protocol table (row with GEN-)
   const protTxt=rowsText(protRows);
@@ -2008,7 +2038,7 @@ function doPlasmaStab(wb){
   }
   sections.push(resultSection);
 
-  const uploadData=cpds.map(c=>({'Compound_ID':c['Compound_ID']||'','batch_id':c['batch_id']||'','Species':c['Species']||'','in vitro t1/2 (min)':c['in vitro t1/2 (min)']||'','% Remaining at 240 min':c['% Remaining at 240 min']||'','CRO':c['CRO']||'Genesis','Comment':c['Comment']||''}));
+  const uploadData=cpds.map(c=>({'Compound_ID':c['Compound_ID']||'','batch_id':c['batch_id']||'','Species':c['Species']||'','in vitro t1/2 (min)':c['in vitro t1/2 (min)']||'','% Remaining at 240 min':c['% Remaining at 240 min']||'','CRO':c['CRO']||'Genesis','Comment':''}));
   return{parsed:{cpds,isCv},uploadRows:uploadData,sections};
 }
 
@@ -2044,15 +2074,7 @@ function doPPBUC(wb){
   const col_q3=bioRows.map(c=>c.q3).filter(v=>v!==null);
 
   // IS CV from Raw Data sheets
-  let isCV=null;
-  for(const sn of wb.SheetNames.filter(s=>s.toLowerCase().includes('raw'))){
-    const rr=sheetRows(wb,sn,200)||[];
-    for(const r of rr){
-      const idx=r.findIndex(c=>String(c).includes('CV(Fu%)'));
-      if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}
-    }
-    if(isCV!==null)break;
-  }
+  const isCV=extractISCVFromWB(wb);
 
   // Plasma pH from Materials
   const matTxt=rowsText(sheetRows(wb,'Material',60)||[]);
@@ -2144,12 +2166,7 @@ function doMicBinding(wb){
   const cpds=allRows.filter(r=>r.id.match(/GEN-/));
 
   // IS CV from raw data
-  let isCV=null;
-  const rawRows=sheetRows(wb,'Raw Data',200)||[];
-  for(const r of rawRows){
-    const idx=r.findIndex(c=>String(c).includes('CV(IS)'));
-    if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}
-  }
+  const isCV=extractISCVFromWB(wb);
 
   const bioTxt=rowsText(sheetRows(wb,'Bioanalytical',80)||[]);
 
@@ -2235,15 +2252,7 @@ function doBloodPart(wb){
   const cpds=allRows.filter(r=>r.id.match(/GEN-/));
 
   // IS CV from raw data sheets
-  let isCV=null;
-  for(const sn of wb.SheetNames.filter(s=>s.toLowerCase().includes('raw'))){
-    const rr=sheetRows(wb,sn,200)||[];
-    for(const r of rr){
-      const idx=r.findIndex(c=>String(c).includes('CV(IS)'));
-      if(idx>=0&&N(r[idx+1])!==null){isCV=N(r[idx+1]);break;}
-    }
-    if(isCV!==null)break;
-  }
+  const isCV=extractISCVFromWB(wb);
 
   const ctrlRef={Human:[2,3],Rat:[2,3],Mouse:[2,3],Monkey:[2,3],Dog:[4,5]};
 
@@ -2983,7 +2992,7 @@ function doPhototox(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'☀️',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'IC50 -Irr (μg/mL)':c.ic50m_str||fmt(c.ic50m,4),'IC50 +Irr (μg/mL)':fmt(c.ic50p,4),'PIF':c.pif_str||fmt(c.pif,3),'MPE':fmt(c.mpe,4),'CRO':'Pharmaron','Comment':c.hasPrecip?'Precipitation observed':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'IC50 -Irr (μg/mL)':c.ic50m_str||fmt(c.ic50m,4),'IC50 +Irr (μg/mL)':fmt(c.ic50p,4),'PIF':c.pif_str||fmt(c.pif,3),'MPE':fmt(c.mpe,4),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -3076,7 +3085,7 @@ function doHepatotox(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'🫀',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':'Human','IC50 (μM)':c.ic50_str,'% control activity at highest concentration':c.pct_viab!==null?fmt(c.pct_viab):'','CRO':'Pharmaron','Comment':c.hasPrecip?'Precipitation observed':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':'Human','IC50 (μM)':c.ic50_str,'% control activity at highest concentration':c.pct_viab!==null?fmt(c.pct_viab):'','CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -3227,11 +3236,14 @@ function downloadWithUpload(){
   if(!WB){toast('No workbook loaded','warn');return;}
   const tmpl=TEMPLATES[SEL];if(!tmpl){toast('No template for this assay','warn');return;}
   const rows=getLiveRows();
-  const idx=WB.SheetNames.indexOf('Upload');
-  if(idx>-1){WB.SheetNames.splice(idx,1);delete WB.Sheets['Upload'];}
+  // Build a new workbook with Upload sheet FIRST, then original sheets after
+  const wb2=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet([tmpl.cols,...rows.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]);
-  XLSX.utils.book_append_sheet(WB,ws,'Upload');
-  XLSX.writeFile(WB,FNAME.replace(/\.[^.]+$/,'')+'_QC_upload.xlsx');
+  XLSX.utils.book_append_sheet(wb2,ws,'Upload');
+  for(const sn of WB.SheetNames){
+    if(sn!=='Upload') XLSX.utils.book_append_sheet(wb2,WB.Sheets[sn],sn);
+  }
+  XLSX.writeFile(wb2,FNAME.replace(/\.[^.]+$/,'')+'_QC_upload.xlsx');
   toast('Downloaded with Upload sheet','pass');
 }
 function downloadUploadOnly(){
