@@ -56,7 +56,9 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .btn-ovr-pass{background:rgba(26,127,55,.12);color:var(--gr);border:1px solid rgba(26,127,55,.25);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
 .btn-ovr-warn{background:rgba(154,103,0,.12);color:var(--wa);border:1px solid rgba(154,103,0,.25);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
 .btn-ovr-cancel{background:rgba(192,57,43,.1);color:var(--re);border:1px solid rgba(192,57,43,.2);padding:3px 9px;font-size:11px;border-radius:3px;cursor:pointer}
-.inp{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:6px 10px;font-size:12px;outline:none}
+.prog-btn{background:var(--sf2);color:var(--tx);border:1px solid var(--bd);transition:all .15s}
+.prog-btn:hover{border-color:var(--ac);color:var(--ac)}
+.prog-btn.active{background:var(--ac);color:#fff;border-color:var(--ac)}
 .inp:focus{border-color:var(--ac)}select.inp{cursor:pointer}
 .rhdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:13px 16px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
 .rttl{font-size:14px;font-weight:700}.rmeta{font-size:11px;color:var(--mu)}
@@ -154,6 +156,16 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
       <span class="sec-tog" id="step1-tog">▼</span>
     </div>
     <div class="sec-body" id="step1">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">Program</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="prog-btns">
+          <button class="prog-btn btn btn-sm" id="prog-none" onclick="selectProg(null,this)">No Program</button>
+          <button class="prog-btn btn btn-sm" id="prog-pc006" onclick="selectProg('PC-006',this)">PC-006</button>
+          <button class="prog-btn btn btn-sm" id="prog-pc017" onclick="selectProg('PC-017',this)">PC-017</button>
+          <button class="prog-btn btn btn-sm" id="prog-pc018" onclick="selectProg('PC-018',this)">PC-018</button>
+        </div>
+        <div id="prog-desc" style="font-size:11px;color:var(--mu);margin-top:7px;font-style:italic;min-height:16px;"></div>
+      </div>
       <div class="flt-bar">
         <span class="lbl" style="margin-bottom:0;">Filter:</span>
         <button class="btn btn-sm btn-pri flt-btn" onclick="flt('all',this)">All</button>
@@ -333,18 +345,146 @@ const TEMPLATES={
 };
 
 // ─────────────────────────────────────────────────────────────
+// PROGRAM-SPECIFIC QC PARAMETERS
+// ─────────────────────────────────────────────────────────────
+const PROGRAM_PARAMS={
+  'PC-006':{
+    label:'PC-006',
+    desc:'Pain program — includes Dog/Monkey species, Digoxin WT permeability check, FaSSIF/FeSSIF solubility controls, IS carryover check in Mic Stab',
+    mic_stab:{
+      controls:{
+        Human:  {Verapamil:{t12:[4,10],clint:[150,300]},  Raloxifene:{t12:[8,14],clint:[95,150]}},
+        Mouse:  {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[10,22],clint:[60,150]}},
+        Rat:    {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[5,15],clint:[60,200]}},
+        Monkey: {Verapamil:{t12:[0.5,5],clint:[500,1500]},Raloxifene:{t12:[2,10],clint:[200,500]}},
+        Dog:    {Verapamil:{t12:[8,15],clint:[100,250]},  Raloxifene:{t12:[2,9],clint:[150,650]}},
+      },
+      carryoverCheck:true,
+    },
+    hep_stab:{
+      controls:{
+        Human:  {Verapamil:{t12:[20,40],clint:[30,80]}},
+        Mouse:  {Verapamil:{t12:[2,9],clint:[150,300]}},
+        Rat:    {Verapamil:{t12:[2,9],clint:[150,300]}},
+        Monkey: {Verapamil:{t12:[0.5,6],clint:[250,600]}},
+        Dog:    {Verapamil:{t12:[10,30],clint:[50,150]}},
+      },
+    },
+    logd:{nicardipine:{lo:3.6,hi:4.9}},
+    solubility:{
+      controls:[
+        {name:'Progesterone FaSSIF',lo:37,hi:63},
+        {name:'Diclofenac FaSSIF',lo:225,hi:375},
+        {name:'Progesterone FeSSIF',lo:215,hi:358},
+        {name:'Diclofenac FeSSIF',lo:225,hi:375},
+        {name:'Progesterone FaSSGF',lo:19,hi:31},
+        {name:'Diclofenac FaSSGF',lo:3.0,hi:6.3},
+        {name:'Progesterone PBS',lo:9.8,hi:16.3},
+        {name:'Diclofenac PBS',lo:225,hi:375},
+      ],
+    },
+    permeability:{digoxinWT:true},
+    hep_binding:{ketoconazoleBoundThresh:30},
+  },
+  'PC-017':{
+    label:'PC-017',
+    desc:'Pain program — Human/Mouse/Rat species only, PBS solubility controls, Ketoconazole >90% in Hep Binding',
+    mic_stab:{
+      controls:{
+        Human: {Verapamil:{t12:[4,10],clint:[150,300]},  Raloxifene:{t12:[8,14],clint:[95,150]}},
+        Rat:   {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[7,15],clint:[60,200]}},
+        Mouse: {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[15,30],clint:[50,100]}},
+      },
+      carryoverCheck:false,
+    },
+    hep_stab:{
+      controls:{
+        Human: {Verapamil:{t12:[15,50],clint:[20,75]}},
+        Rat:   {Verapamil:{t12:[2,9],clint:[150,650]}},
+        Mouse: {Verapamil:{t12:[2,9],clint:[150,650]}},
+      },
+    },
+    logd:{nicardipine:{lo:4.0,hi:4.9}},
+    solubility:{
+      controls:[
+        {name:'Progesterone (PBS)',lo:9.8,hi:16.3},
+        {name:'Diclofenac (PBS)',lo:225,hi:375},
+      ],
+    },
+    permeability:{digoxinWT:false},
+    hep_binding:{ketoconazoleBoundThresh:90},
+  },
+  'PC-018':{
+    label:'PC-018',
+    desc:'Pain program — Human/Mouse/Rat species only, PBS solubility controls, Ketoconazole >90% in Hep Binding',
+    mic_stab:{
+      controls:{
+        Human: {Verapamil:{t12:[4,10],clint:[150,300]},  Raloxifene:{t12:[8,14],clint:[95,150]}},
+        Rat:   {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[7,15],clint:[60,200]}},
+        Mouse: {Verapamil:{t12:[2,9],clint:[150,650]},   Raloxifene:{t12:[10,30],clint:[50,100]}},
+      },
+      carryoverCheck:false,
+    },
+    hep_stab:{
+      controls:{
+        Human: {Verapamil:{t12:[15,50],clint:[20,75]}},
+        Rat:   {Verapamil:{t12:[2,9],clint:[150,650]}},
+        Mouse: {Verapamil:{t12:[2,9],clint:[150,650]}},
+      },
+    },
+    logd:{nicardipine:{lo:4.0,hi:4.9}},
+    solubility:{
+      controls:[
+        {name:'Progesterone (PBS)',lo:9.8,hi:16.3},
+        {name:'Diclofenac (PBS)',lo:225,hi:375},
+      ],
+    },
+    permeability:{digoxinWT:false},
+    hep_binding:{ketoconazoleBoundThresh:90},
+  },
+};
+
+/** Return program params for current assay, or fallback to default (PC-006 ranges) */
+function progP(assay){
+  if(PROG&&PROGRAM_PARAMS[PROG]&&PROGRAM_PARAMS[PROG][assay])
+    return PROGRAM_PARAMS[PROG][assay];
+  // Generic defaults (no program selected — use PC-006 as baseline)
+  return (PROGRAM_PARAMS['PC-006']||{})[assay]||{};
+}
+
+// ─────────────────────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────────────────────
-let SEL=null,WB=null,FNAME='',PARSED={},UPLOAD_ROWS=[],OVR={};
+let SEL=null,WB=null,FNAME='',PARSED={},UPLOAD_ROWS=[],OVR={},PROG=null;
 let TRACKER=JSON.parse(localStorage.getItem('dmpk_tk_v4')||'{"cpds":[],"st":{}}');
 
 document.addEventListener('DOMContentLoaded',()=>{
   renderAssayGrid();renderTracker();renderControlsTab();renderTemplates();
+  // Set "No Program" as default active
+  document.getElementById('prog-none').classList.add('active');
   const z=document.getElementById('upzone');
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag')});
   z.addEventListener('dragleave',()=>z.classList.remove('drag'));
   z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag');processFile(e.dataTransfer.files[0])});
 });
+
+function selectProg(prog,btn){
+  PROG=prog;
+  // Update button states
+  document.querySelectorAll('.prog-btn').forEach(b=>{b.classList.remove('active');b.classList.remove('btn-pri');b.classList.add('btn-sec')});
+  if(btn){btn.classList.add('active');btn.classList.remove('btn-sec');}
+  // Update description
+  const desc=document.getElementById('prog-desc');
+  if(prog&&PROGRAM_PARAMS[prog]){
+    desc.textContent='Program selected: '+PROGRAM_PARAMS[prog].label+' — '+PROGRAM_PARAMS[prog].desc;
+    desc.style.color='var(--ac)';
+  } else {
+    desc.textContent='No program selected — using default QC parameters';
+    desc.style.color='var(--mu)';
+  }
+  // Re-run QC if file already loaded
+  if(WB&&SEL)runQC();
+}
 
 // ─────────────────────────────────────────────────────────────
 // TAB / UI
@@ -673,7 +813,8 @@ function runQC(){
   }
   document.getElementById('results-wrap').classList.remove('hidden');
   document.getElementById('r-title').textContent=a.name+' — QC';
-  document.getElementById('r-meta').textContent='File: '+FNAME+' · Sheets: '+WB.SheetNames.join(', ');
+  const progLabel=PROG?` · Program: ${PROG}`:'';
+  document.getElementById('r-meta').textContent='File: '+FNAME+' · Sheets: '+WB.SheetNames.join(', ')+progLabel;
   window._sections=sections;
   renderSections(sections);
   renderUploadPreview();
@@ -1067,14 +1208,16 @@ function doMicStab(wb){
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
     if(txt.toLowerCase().includes('signal')||txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)snr=Math.min(...v.filter(x=>x>0));}
   }
-  // Controls acceptance ranges from checklist
-  const CTRL_RANGES={
+  // Controls acceptance ranges — from program params (falls back to PC-006 defaults)
+  const _msp=progP('mic_stab');
+  const CTRL_RANGES=_msp.controls||{
     Human:{Verapamil:{t12:[4,10],clint:[150,300]},Raloxifene:{t12:[8,14],clint:[95,150]}},
     Mouse:{Verapamil:{t12:[2,9],clint:[150,650]},Raloxifene:{t12:[10,22],clint:[60,150]}},
     Rat:  {Verapamil:{t12:[2,9],clint:[150,650]},Raloxifene:{t12:[5,15],clint:[60,200]}},
     Monkey:{Verapamil:{t12:[0.5,5],clint:[500,1500]},Raloxifene:{t12:[2,10],clint:[200,500]}},
     Dog:  {Verapamil:{t12:[8,15],clint:[100,250]},Raloxifene:{t12:[2,9],clint:[150,650]}},
   };
+  const _showCarryover=_msp.carryoverCheck!==false; // true for PC-006, false for PC-017/018
 
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
@@ -1100,7 +1243,7 @@ function doMicStab(wb){
   sections.push({title:'Bioanalytical',icon:'⚗️',rows:bRows});
   sections.push({title:'Raw Data Quality',icon:'📊',rows:[
     {key:'iscv',label:'IS Peak Area CV ≤ 25%',st:isCv!==null?(isCv<=25?'pass':'fail'):'fail',val:isCv!==null?fmt(isCv)+'%':'IS CV not found in Raw Data',note:''},
-    {key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'fail',val:carryover!==null?fmt(carryover)+'%':'Carryover not found in Raw Data',note:''},
+    ...(_showCarryover?[{key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'fail',val:carryover!==null?fmt(carryover)+'%':'Carryover not found in Raw Data',note:''}]:[]),
     {key:'snr',label:'Signal/Noise ≥ 3',st:snr!==null?(snr>=3?'pass':'fail'):'fail',val:snr!==null?fmt(snr,1):'SNR not found in Raw Data',note:''},
     {key:'r2',label:'Controls: R² ≥ 0.95',st:r2!==null?(r2>=0.95?'pass':'fail'):'fail',val:r2!==null?fmt(r2,3):'R² not found in Raw Data',note:''},
   ]});
@@ -1150,12 +1293,13 @@ function doHepStab(wb){
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
     if(txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
   }
-  const CTRL_RANGES={
-    Human:{Verapamil:{t12:[20,40],clint:[30,80]}},
-    Mouse:{Verapamil:{t12:[2,9],clint:[150,300]}},
-    Rat:  {Verapamil:{t12:[2,9],clint:[150,300]}},
-    Monkey:{Verapamil:{t12:[0.5,6],clint:[250,600]}},
-    Dog:  {Verapamil:{t12:[10,30],clint:[50,150]}},
+  const _hsp=progP('hep_stab');
+  const CTRL_RANGES=_hsp.controls||{
+    Human:  {Verapamil:{t12:[20,40],clint:[30,80]}},
+    Mouse:  {Verapamil:{t12:[2,9],clint:[150,300]}},
+    Rat:    {Verapamil:{t12:[2,9],clint:[150,300]}},
+    Monkey: {Verapamil:{t12:[0.5,6],clint:[250,600]}},
+    Dog:    {Verapamil:{t12:[10,30],clint:[50,150]}},
   };
 
   const sections=[];
@@ -1243,8 +1387,11 @@ function doSolubility(wb){
     if(txt.match(/\bSNR\b|noise/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
     if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carry=Math.max(...v);}
   }
-  // Control ranges
+  // Control ranges — program-specific or full defaults
   const CTRL={Progesterone:{PBS:[9.8,16.3],FaSSIF:[37,63],FeSSIF:[215,358],FaSSGF:[19,31]},Diclofenac:{PBS:[225,375],FaSSIF:[225,375],FeSSIF:[225,375],FaSSGF:[3.0,6.3]}};
+  const _solp=progP('solubility');
+  // If program specifies a controls list, use it for the controls section header text
+  const _solCtrlList=_solp.controls||null;
 
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
@@ -1274,9 +1421,10 @@ function doSolubility(wb){
   sections.push({title:'Bioanalytical & Raw Data',icon:'⚗️',rows:bRows});
   // Controls
   const ctrlRows=[];
+  const _ctrlNote=_solCtrlList?`Active controls for ${PROG||'default'}: ${_solCtrlList.map(c=>c.name+' ('+c.lo+'–'+c.hi+' μM)').join(', ')}`:'';
   for(const c of ctrl){
     const rng=CTRL[c.id]?.['PBS'];
-    if(rng)ctrlRows.push({key:`ctrl_${c.id}`,label:`${c.id} PBS solubility (expected ${rng[0]}–${rng[1]} μM)`,st:autoSt(c.sol,...rng,rng[0]*0.8,rng[1]*1.2),val:c.sol!==null?fmt(c.sol)+' μM':'Not found',note:''});
+    if(rng)ctrlRows.push({key:`ctrl_${c.id}`,label:`${c.id} PBS solubility (expected ${rng[0]}–${rng[1]} μM)`,st:autoSt(c.sol,...rng,rng[0]*0.8,rng[1]*1.2),val:c.sol!==null?fmt(c.sol)+' μM':'Not found',note:_ctrlNote});
   }
   if(!ctrlRows.length)ctrlRows.push({key:'no_ctrl',label:'Progesterone/Diclofenac controls',st:'fail',val:'Controls not found in Summary',note:''});
   sections.push({title:'Controls (Summary)',icon:'🎯',rows:ctrlRows});
@@ -1345,7 +1493,8 @@ function doLogD(wb){
   sections.push({title:'Bioanalytical & Raw Data',icon:'⚗️',rows:bRows});
   const ctrlRows=[];
   for(const c of ctrl){
-    ctrlRows.push({key:'nica',label:'Nicardipine LogD (expected 3.6–4.9)',st:autoSt(c.mean,3.6,4.9,3.3,5.2),val:c.mean!==null?fmt(c.mean,2):'Not found',note:''});
+    const _ldp=progP('logd');const _nica=_ldp.nicardipine||{lo:3.6,hi:4.9};
+    ctrlRows.push({key:'nica',label:`Nicardipine LogD (expected ${_nica.lo}–${_nica.hi})`,st:autoSt(c.mean,_nica.lo,_nica.hi,_nica.lo-0.3,_nica.hi+0.3),val:c.mean!==null?fmt(c.mean,2):'Not found',note:''});
   }
   if(!ctrlRows.length)ctrlRows.push({key:'no_ctrl',label:'Nicardipine control',st:'fail',val:'Nicardipine not found in Summary',note:''});
   sections.push({title:'Controls — Nicardipine',icon:'🎯',rows:ctrlRows});
@@ -1441,6 +1590,7 @@ function doPermeability(wb){
   const metro=ctrl.find(c=>c.id.match(/Metoprolol/i));
   const dig=ctrl.find(c=>c.id.match(/Digoxin/i)&&!c.id.match(/WT/i));
   const digWT=ctrl.find(c=>c.id.match(/Digoxin.*WT|WT.*Digoxin/i));
+  const _permp=progP('permeability');const _showDigWT=_permp.digoxinWT!==false;
   if(metro){
     ctrlRows.push({key:'metro_ab',label:'Metoprolol Papp A→B (expected >10×10⁻⁶ cm/s)',st:metro.pappAB!==null?(metro.pappAB>10?'pass':'fail'):'fail',val:metro.pappAB!==null?fmt(metro.pappAB,2):'Not found',note:''});
     ctrlRows.push({key:'metro_er',label:'Metoprolol Efflux Ratio (expected <2)',st:metro.er!==null?(metro.er<2?'pass':'fail'):'fail',val:metro.er!==null?fmt(metro.er,2):'Not found',note:''});
@@ -1448,6 +1598,10 @@ function doPermeability(wb){
   if(dig){
     ctrlRows.push({key:'dig_ab',label:'Digoxin Papp A→B (expected <2×10⁻⁶ cm/s)',st:dig.pappAB!==null?(dig.pappAB<2?'pass':'fail'):'fail',val:dig.pappAB!==null?fmt(dig.pappAB,2):'Not found',note:''});
     ctrlRows.push({key:'dig_er',label:'Digoxin Efflux Ratio (expected >10)',st:dig.er!==null?(dig.er>10?'pass':'fail'):'fail',val:dig.er!==null?fmt(dig.er,2):'Not found',note:''});
+  }
+  if(_showDigWT&&digWT){
+    ctrlRows.push({key:'digwt_ab',label:'Digoxin WT Papp A→B (expected <2×10⁻⁶ cm/s)',st:digWT.pappAB!==null?(digWT.pappAB<2?'pass':'fail'):'fail',val:digWT.pappAB!==null?fmt(digWT.pappAB,2):'Not found',note:''});
+    ctrlRows.push({key:'digwt_er',label:'Digoxin WT Efflux Ratio (expected >3)',st:digWT.er!==null?(digWT.er>3?'pass':'fail'):'fail',val:digWT.er!==null?fmt(digWT.er,2):'Not found',note:'PC-006 only'});
   }
   if(!ctrlRows.length)ctrlRows.push({key:'no_ctrl',label:'Metoprolol/Digoxin controls',st:'fail',val:'Controls not found in Summary',note:''});
   sections.push({title:'Controls (Summary)',icon:'🎯',rows:ctrlRows});
@@ -1608,7 +1762,8 @@ function doHepBinding(wb){
   const ctrlRows=[];
   if(controls.length>0){
     for(const c of controls){
-      ctrlRows.push({key:`bd`,label:`Ketoconazole (${c.species}) — % Bound (expected >30%)`,st:c.pBound>30?'pass':'fail',val:fmt(c.pBound)+'%',note:''});
+      const _hbp=progP('hep_binding');const _hbThresh=_hbp.ketoconazoleBoundThresh||30;
+      ctrlRows.push({key:`bd`,label:`Ketoconazole (${c.species}) — % Bound (expected >${_hbThresh}%)`,st:c.pBound>_hbThresh?'pass':'fail',val:fmt(c.pBound)+'%',note:''});
       ctrlRows.push({key:`rc`,label:`Ketoconazole (${c.species}) — % Recovery (75–125%)`,st:autoSt(c.pRec,75,125,65,135),val:c.pRec!==null?fmt(c.pRec)+'%':'Not in Summary',note:''});
     }
   } else ctrlRows.push({key:'no_ctrl',label:'Ketoconazole control',st:'fail',val:'Ketoconazole not found in Summary',note:''});
