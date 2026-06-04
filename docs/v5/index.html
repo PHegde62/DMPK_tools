@@ -961,81 +961,6 @@ function updateScore(){
 // Each section: {title, icon, rows:[{key,label,st,val,note}]}
 // st: 'pass'|'warn'|'fail'|'na'|'info'|'manual'
 // ─────────────────────────────────────────────────────────────
-function parseAndCheck(id,wb){
-  switch(id){
-    case'mic_stab':     return doMicStab(wb);
-    case'hep_stab':     return doHepStab(wb);
-    case'plasma_stab':  return doPlasmaStab(wb);
-    case'solubility':   return doSolubility(wb);
-    case'logd':         return doLogD(wb);
-    case'permeability': return doPermeability(wb);
-    case'ppb':          return doPPB(wb);
-    case'ppb_uc':       return doPPBUC(wb);
-    case'mic_binding':  return doMicBinding(wb);
-    case'hep_binding':  return doHepBinding(wb);
-    case'media_binding':return doMediaBinding(wb);
-    case'blood_part':   return doBloodPart(wb);
-    case'cyp_screen':   return doCYPScreen(wb);
-    case'cyp_ic50':     return doCYPIC50(wb);
-    case'cyp_tdi':      return doCYPTDI(wb);
-    case'ugt':          return doUGT(wb);
-    case'herg':         return doHERG(wb);
-    case'pxr':          return doPXR(wb);
-    case'phototox':     return doPhototox(wb);
-    case'hepatotox':    return doHepatotox(wb);
-    case'pk_wuxi':      return doPK(wb,'WuXi');
-    case'pk_pharmaron': return doPK(wb,'Pharmaron');
-    default: throw new Error('Unknown assay: '+id);
-  }
-}
-
-// ── helper: extract compound info from Materials sheet ──────
-function getMaterials(wb){
-  const rows=sheetRows(wb,'Material',100)||sheetRows(wb,'material',100)||[];
-  const cpds=[];
-  for(const r of rows){
-    const cid=String(r[0]||'').trim();
-    if(cid.match(/GEN-\d/)){
-      const mw=N(r[4]);const purity=N(r[5])!==null?N(r[5]):N(r[6]);
-      cpds.push({id:cid,batch:String(r[1]||'').trim(),mw,purity});
-    }
-  }
-  return cpds;
-}
-
-// ── helper: extract report number / study number from Signature ──
-function getReportInfo(wb){
-  const rows=sheetRows(wb,'Signature',20)||sheetRows(wb,'Cover',20)||[];
-  const txt=rowsText(rows);
-  const rn=rows.find(r=>String(r[0]).includes('Report Number')||String(r[0]).includes('Report Name'));
-  const sn=rows.find(r=>String(r[0]).includes('Study Number'));
-  return{
-    reportName: rn?String(rn[1]||'').trim():'',
-    reportNum:  rows.find(r=>String(r[0]).includes('Report Number'))?String(rows.find(r=>String(r[0]).includes('Report Number'))[1]||'').trim():'',
-    studyNum:   sn?String(sn[1]||'').trim():'',
-    sponsor:    rows.find(r=>String(r[0]).includes('Sponsor')||String(r[0]).includes('Submitted to'))?String(rows.find(r=>String(r[0]).includes('Sponsor')||String(r[0]).includes('Submitted to'))[1]||'').trim():'',
-  };
-}
-
-// ── helper: extract bioanalytical params ─────────────────────
-function getBioanalytical(wb){
-  const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'bioanalysis',80)||[];
-  const txt=rowsText(rows);
-  const result={compounds:[]};
-  // Q1/Q3/DP/CE for test compounds
-  for(const r of rows){
-    if(String(r[1]||'').match(/GEN-\d/)){
-      const cid=String(r[1]).trim();
-      const q1=N(r[2]),q3=N(r[3]),dp=N(r[4]),ce=N(r[5]);
-      result.compounds.push({id:cid,q1,q3,dp,ce});
-    }
-  }
-  result.column=txt.includes('XSelect')||txt.includes('Horizon')?'Found':'Not stated';
-  result.mobile=txt.includes('formic acid')?'0.1% formic acid in water/ACN':'Not stated';
-  result.ionspray=txt.includes('5500')?' +5500V':txt.includes('4500')?' +4500V':'';
-  return result;
-}
-
 // ─────────────────────────────────────────────────────────────
 // PLASMA STABILITY
 // ─────────────────────────────────────────────────────────────
@@ -1209,6 +1134,9 @@ function extractISCVFromWB(wb, extraSheets=[]){
   }
   return null;
 }
+
+// Helper: find text in rows, return pass/fail row object
+function chk(label, txt, searchTerm, passMsg, failMsg, extraNote){
   const found=typeof searchTerm==='function'?searchTerm(txt):txt.includes(searchTerm);
   return{
     label,
