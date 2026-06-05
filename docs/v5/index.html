@@ -229,7 +229,8 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         <div class="scroll-x" id="upload-preview-wrap"></div>
         <div class="flex gap-2 fw mt-3">
           <button class="btn btn-grn" onclick="downloadWithUpload()">⬇️ Download Original + Upload Sheet</button>
-          <button class="btn btn-sec" onclick="downloadUploadOnly()">⬇️ Upload Sheet Only</button>
+          <button class="btn btn-sec" onclick="downloadUploadOnly()">⬇️ CDD Upload Sheet</button>
+          <button class="btn btn-sec" onclick="downloadKS()">⬇️ KS Upload Sheet</button>
           <button class="btn btn-sec" onclick="copyTSV()">📋 Copy as TSV</button>
         </div>
       </div>
@@ -316,7 +317,7 @@ const ASSAYS=[
   {id:'hepatotox',    name:'Hepatotoxicity',            icon:'🫀',cat:'safety'},
   // PK
   {id:'pk_wuxi',      name:'PK (WuXi)',                 icon:'🐭',cat:'pk'},
-  {id:'pk_pharmaron', name:'PK (Pharmaron)',            icon:'🐀',cat:'pk'},
+  {id:'pk_pharmaron', name:'Routine PK – Pharmaron',     icon:'🐀',cat:'pk'},
 ];
 
 const TEMPLATES={
@@ -341,7 +342,7 @@ const TEMPLATES={
   hep_binding:  {cdd:'[Species] PPB',               cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Recovery','% Remaining','Condition','CRO']},
   media_binding:{cdd:'[Species] PPB',               cols:['Compound_ID','batch_id','Buffer','% Bound','% Unbound','% Recovery','% Remaining at 6 hr','Condition','CRO']},
   pk_wuxi:      {cdd:'PK (WuXi)',                   cols:['Compound_ID','batch_id','Species','Route','Dose (mg/kg)','Vehicle','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)']},
-  pk_pharmaron: {cdd:'PK (Pharmaron)',              cols:['Compound_ID','batch_id','Species','Route','Dose (mg/kg)','Vehicle','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)']},
+  pk_pharmaron: {cdd:'Routine PK – Pharmaron (CDD)',  cols:['Compound_ID','batch_id','Species','Route','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)','AUClast/D (h*nmol/l/(mg/kg)','Vss_obs (L/kg)','Tmax (h)','Cmax (nmol/l)','F (%)','CRO']},
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -1020,7 +1021,7 @@ function parseAndCheck(id,wb){
     case'phototox':     return doPhototox(wb);
     case'hepatotox':    return doHepatotox(wb);
     case'pk_wuxi':      return doPK(wb,'WuXi');
-    case'pk_pharmaron': return doPK(wb,'Pharmaron');
+    case'pk_pharmaron': return doRoutinePKPharmaron(wb);
     default: throw new Error('Unknown assay: '+id);
   }
 }
@@ -1885,6 +1886,159 @@ function doMediaBinding(wb){
 // ─────────────────────────────────────────────────────────────
 // PK (WuXi or Pharmaron) — in vivo pharmacokinetics
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// ROUTINE PK — PHARMARON  (report .xls: Formulation, report Upload tab,
+// Parameters(nM/ng), PK_Results(ng/nM)). Phase 1: Summary PK parameters,
+// ng↔nM conversion check, KS + CDD upload tabs, manual checks.
+// ─────────────────────────────────────────────────────────────
+function doRoutinePKPharmaron(wb){
+  const rpt=getReportInfo(wb);
+  // ---- Formulation: MW / FW / purity / compound / batch / appearance ----
+  const fRows=sheetRows(wb,'Formulation',60)||[];
+  const fcell=(lbl)=>{for(const r of fRows){for(let j=0;j<r.length;j++){if(String(r[j]||'').trim().toLowerCase().startsWith(lbl.toLowerCase()))return r[j+1];}}return null;};
+  const MW=N(fcell('MW')),FW=N(fcell('FW')),purity=N(fcell('Purity'));
+  const compoundFull=String(fcell('Compound ID')||'').trim();
+  const batchForm=String(fcell('Batch')||'').trim();
+  const appearance=String(fcell('Appearance')||'').trim();
+  const stem=(compoundFull.match(/GEN-\d{3,}/i)||[compoundFull])[0];
+
+  // ---- report Upload tab: consolidated per-group PK params (CDD source) ----
+  const upRows=sheetRows(wb,'Upload',30)||[];
+  const upHdr=(upRows[0]||[]).map(c=>String(c||'').trim());
+  const groups=[];
+  for(let i=1;i<upRows.length;i++){
+    const r=upRows[i]; if(!String(r[0]||'').match(/GEN-/i))continue;
+    const o={}; upHdr.forEach((h,j)=>{o[h]=r[j];}); groups.push(o);
+  }
+  const gv=(o,re)=>{const k=upHdr.find(h=>re.test(h));return k!==undefined?o[k]:undefined;};
+  const batchRep=groups[0]?gv(groups[0],/batch/i):undefined;
+
+  // ---- Parameters(nM): per-animal lambda points / Rsq / Tlast / Clast ----
+  const pRows=sheetRows(wb,'Parameters(nM)',90)||[];
+  const paramVals=(label,side)=>{const lc=side==='PO'?8:1;const vc=side==='PO'?[10,11,12]:[3,4,5];for(const r of pRows){if(String(r[lc]||'').trim()===label)return vc.map(c=>N(r[c])).filter(v=>v!==null);}return [];};
+  // ---- Parameters(ng): doses ----
+  const pngRows=sheetRows(wb,'Parameters(ng)',90)||[];
+  const doseNg=(side)=>{const lc=side==='PO'?8:1;const vc=side==='PO'?[10,11,12]:[3,4,5];for(const r of pngRows){if(String(r[lc]||'').trim()==='Dose'){const v=vc.map(c=>N(r[c])).filter(x=>x!==null);return v.length?v[0]:null;}}return null;};
+  const ivDose=doseNg('IV'),poDose=doseNg('PO');
+
+  const sections=[];
+
+  // ===== MAIN =====
+  sections.push({title:'Main',icon:'📋',rows:[
+    {key:'rn',label:'Report Number',st:'info',val:rpt.reportNum||compoundFull||'—',note:'CRO: Pharmaron'},
+    {key:'mw',label:`MW match — ${stem} (report MW ${MW!=null?fmt(MW,2)+' g/mol':'?'}, FW ${FW!=null?fmt(FW,2):'?'}, purity ${purity!=null?Math.round(purity*100)+'%':'?'})`,st:'manual',val:'',note:'Click to confirm MW against internal registry'},
+    {key:'batch',label:'Batch ID match (report Upload vs Formulation)',st:(batchRep&&batchForm)?(String(batchRep).trim().toUpperCase()===batchForm.toUpperCase()?'pass':'warn'):'warn',val:`Formulation: ${batchForm||'?'} · Report Upload: ${batchRep||'?'}`,note:(batchRep&&batchForm&&String(batchRep).trim().toUpperCase()!==batchForm.toUpperCase())?'⚠️ Batch mismatch — verify before CDD upload':''},
+  ]});
+
+  // ===== FORMULATION =====
+  const formRows=[{key:'info',label:'Compound info',st:'info',val:`MW ${MW!=null?fmt(MW,2):'?'} · FW ${FW!=null?fmt(FW,2):'?'} · Purity ${purity!=null?Math.round(purity*100)+'%':'?'}`,note:''}];
+  for(const r of fRows){
+    const route=String(r[0]||'').trim();
+    if(/^(IV|PO|IM|SC|IP)$/i.test(route)){
+      const nominal=N(r[3]),meanv=N(r[5]),acc=N(r[6]);
+      if(acc!==null)formRows.push({key:`acc_${route}`,label:`${route} dose formulation — Mean vs Nominal (80–120%)`,st:(acc>=80&&acc<=120)?'pass':((acc>=70&&acc<=130)?'warn':'fail'),val:`${fmt(acc,1)}% (nominal ${nominal!=null?fmt(nominal,3):'?'}, mean ${meanv!=null?fmt(meanv,3):'?'} mg/mL)`,note:''});
+    }
+  }
+  formRows.push({key:'purity_m',label:'Purity match (report vs registry)',st:'manual',val:purity!=null?Math.round(purity*100)+'%':'?',note:'Click to confirm purity'});
+  formRows.push({key:'color',label:`Confirm color / appearance match (${appearance||'?'})`,st:'manual',val:'',note:'Click to confirm appearance'});
+  formRows.push({key:'visual',label:'Formulation visual check',st:'manual',val:'',note:'Click to confirm formulation visually inspected & acceptable'});
+  sections.push({title:'Formulation',icon:'⚗️',rows:formRows});
+
+  // ===== SUMMARY per group (IV / PO) =====
+  for(const o of groups){
+    const route=String(gv(o,/route/i)||'').trim().toUpperCase();
+    const side=route==='PO'?'PO':'IV';
+    const sp=String(gv(o,/species/i)||'').trim();
+    const rows=[];
+    const add=(lbl,re,dp,crit)=>{const raw=gv(o,re);const v=N(raw);let st='info',note='';if(crit&&v!==null){const c=crit(v);st=c.st;note=c.note||'';}const val=(raw===undefined||raw===null||raw==='')?'—':((typeof raw==='number')?fmt(raw,dp):String(raw));rows.push({key:lbl.replace(/\W+/g,'_'),label:lbl,st,val,note});};
+    add('Cl_obs (mL/min/kg)',/^Cl_obs/i,2);
+    add('T1/2 (h)',/^T1\/2|HL_Lambda/i,3);
+    add('C0 (nmol/L)',/^C0/i,1);
+    add('Cmax (nmol/L)',/^Cmax/i,1);
+    add('Tmax (h)',/^Tmax/i,3);
+    add('AUClast (h·nmol/L)',/^AUClast \(/i,1);
+    add('AUCInf (h·nmol/L)',/^AUCInf/i,1);
+    add('AUC %Extrap_obs (<20%)',/Extrap/i,2,v=>({st:v<20?'pass':'warn',note:v>=20?'⚠️ extrapolation ≥20%':''}));
+    add('MRTInf_obs (h)',/MRTInf/i,3);
+    add('Vss_obs (L/kg)',/Vss/i,3);
+    add('AUClast/D',/AUClast\/D/i,2);
+    add('F (%)',/^F \(|^F$/i,2);
+    const lz=paramVals('No_points_lambda_z',side),rsq=paramVals('Rsq',side),tlast=paramVals('Tlast',side),clast=paramVals('Clast',side);
+    if(lz.length){const mn=Math.min(...lz);rows.push({key:'lz',label:'No. points lambda-z (≥3 per subject)',st:mn>=3?'pass':'warn',val:lz.join(', '),note:mn<3?'⚠️ <3 points in a subject':''});}
+    if(rsq.length){const mn=Math.min(...rsq);rows.push({key:'rsq',label:'Rsq (≥0.90 per subject)',st:mn>=0.9?'pass':'warn',val:rsq.map(x=>fmt(x,3)).join(', '),note:mn<0.9?'⚠️ Rsq <0.90 in a subject':''});}
+    if(tlast.length)rows.push({key:'tlast',label:'Tlast (h)',st:'info',val:tlast.map(x=>fmt(x,2)).join(', '),note:''});
+    if(clast.length)rows.push({key:'clast',label:'Clast (nmol/L)',st:'info',val:clast.map(x=>fmt(x,2)).join(', '),note:''});
+    sections.push({title:`Summary — ${sp||'Compound'} ${route}`,icon:'📊',rows});
+  }
+  if(!groups.length)sections.push({title:'Summary',icon:'📊',rows:[{key:'no',label:'PK parameters (report Upload tab)',st:'fail',val:'No GEN- rows found in report Upload sheet',note:''}]});
+
+  // ===== ng ↔ nM CONVERSION =====
+  const ngRows=sheetRows(wb,'PK_Results(ng)',60)||[];
+  const nmRows=sheetRows(wb,'PK_Results (nM)',60)||sheetRows(wb,'PK_Results(nM)',60)||[];
+  const convRows=[];
+  if(MW&&ngRows.length&&nmRows.length){
+    const factor=1000/MW;
+    let hdr=ngRows.findIndex(r=>String(r[0]||'').trim()==='(h)');
+    let n=0;const bad=[];
+    if(hdr>=0){
+      let started=false;
+      for(let i=hdr+1;i<ngRows.length;i++){
+        const rg=ngRows[i]||[],rn=nmRows[i]||[];
+        // stop at the first all-empty row after the concentration block
+        // (prevents bleeding into the summary-parameter tables below)
+        if(N(rg[0])===null&&N(rg[10])===null){if(started)break;else continue;}
+        started=true;
+        for(const pair of [[0,[1,2,3]],[10,[11,12,13]]]){
+          if(N(rg[pair[0]])===null)continue;
+          for(const c of pair[1]){
+            const a=N(rg[c]),b=N(rn[c]);
+            if(a===null||b===null||a<=0||b<=0)continue;
+            n++;const exp=a*factor;
+            if(Math.abs(b-exp)/b>0.02)bad.push(`${String.fromCharCode(65+c)}${i+1}: ${fmt(a,2)}ng→${fmt(exp,1)} exp, got ${fmt(b,1)}`);
+          }
+        }
+      }
+    }
+    convRows.push({key:'factor',label:'Conversion factor used (1000 ÷ MW)',st:'info',val:`${fmt(factor,5)} nM per ng/mL  (MW ${fmt(MW,2)} g/mol)`,note:''});
+    convRows.push({key:'conv',label:`PK_Results: nM = ng × 1000/MW  (n=${n} cells, ±2% tol)`,st:n===0?'fail':(bad.length===0?'pass':'fail'),val:n===0?'No comparable concentration cells found':(bad.length===0?`All ${n} cells reconcile`:`${bad.length}/${n} cells mismatch`),note:bad.slice(0,4).join('  ·  ')});
+  } else {
+    convRows.push({key:'conv_na',label:'ng ↔ nM conversion',st:'fail',val:MW?'PK_Results (ng/nM) sheets not found':'MW not found in Formulation sheet',note:''});
+  }
+  sections.push({title:'ng ↔ nM Conversion Check',icon:'🔬',rows:convRows});
+
+  // ===== UPLOAD & TRACKING (manual) =====
+  sections.push({title:'Upload & Tracking',icon:'⬆️',rows:[
+    {key:'ks_tab',label:'KS upload tab created',st:'manual',val:'',note:'Click after generating the KS upload sheet'},
+    {key:'cdd_tab',label:'CDD upload tab created',st:'manual',val:'',note:'Click after generating the CDD upload sheet'},
+    {key:'cdd_up',label:'Uploaded to CDD',st:'manual',val:'',note:''},
+    {key:'track',label:'Tracking sheet updated',st:'manual',val:'',note:''},
+    {key:'reviewed',label:'Compounds reviewed',st:'manual',val:'',note:''},
+    {key:'mistakes',label:'Mistakes identified / resolved',st:'manual',val:'',note:''},
+  ]});
+
+  // ---- CDD upload rows (mirror report Upload tab; clean id/batch) ----
+  const cddCols=TEMPLATES.pk_pharmaron.cols;
+  const uploadRows=groups.map(o=>{
+    const out={};
+    cddCols.forEach(col=>{
+      if(col==='Compound_ID')out[col]=stem;
+      else if(col==='batch_id')out[col]=batchForm||String(gv(o,/batch/i)||'');
+      else if(/^CRO$/i.test(col))out[col]=String(gv(o,/^CRO$/i)||'Pharmaron');
+      else{const k=upHdr.find(h=>h.toLowerCase()===col.toLowerCase());const rawv=k!==undefined?o[k]:undefined;out[col]=(rawv===undefined||rawv===null||rawv==='')?'':rawv;}
+    });
+    return out;
+  });
+
+  // ---- KS upload rows ----
+  const speciesRaw=groups[0]?String(gv(groups[0],/species/i)||'').trim():'';
+  const title=`${speciesRaw||'Mouse'} Routine PK IV ${ivDose!=null?fmt(ivDose,0):'?'}mpk and PO at ${poDose!=null?fmt(poDose,0):'?'}mpk`;
+  const ksCols=['Compound_ID','batch_id','Study Title','Species','Raw data','CRO','Comment'];
+  const ksRows=[{'Compound_ID':stem,'batch_id':batchForm,'Study Title':title,'Species':speciesRaw,'Raw data':'','CRO':'Pharmaron','Comment':''}];
+
+  return{parsed:{cpds:groups,ksRows,ksCols},uploadRows,sections};
+}
+
+
 function doPK(wb,cro){
   const rpt=getReportInfo(wb);
   const matRows=getMaterials(wb);
@@ -3259,6 +3413,14 @@ function copyTSV(){
   const rows=getLiveRows();
   const lines=[tmpl.cols.join('\t'),...rows.map(r=>tmpl.cols.map(c=>r[c]||'').join('\t'))];
   navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('Copied','pass')).catch(()=>toast('Copy failed','fail'));
+}
+function downloadKS(){
+  const ks=PARSED&&PARSED.ksRows, cols=PARSED&&PARSED.ksCols;
+  if(!ks||!ks.length||!cols){toast('No KS upload sheet for this assay','warn');return;}
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([cols,...ks.map(r=>cols.map(c=>r[c]!==undefined?r[c]:''))]),'Upload');
+  XLSX.writeFile(wb2,(FNAME.replace(/\.[^.]+$/,'')||'routine_pk')+'_KS_upload.xlsx');
+  toast('KS upload sheet downloaded','pass');
 }
 
 // ─────────────────────────────────────────────────────────────
