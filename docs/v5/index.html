@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>DMPK QC Pipeline v4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
 :root{--bg:#f4f6f9;--sf:#ffffff;--sf2:#eef1f5;--sf3:#e4e8ee;--bd:#d0d6e0;--tx:#1a2130;--mu:#5a6478;--ac:#1d6fd6;--gr:#1a7f37;--wa:#9a6700;--re:#c0392b;--pu:#6f42c1;--cy:#0891b2;--r:8px;--mo:'JetBrains Mono','Fira Code',monospace}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -196,6 +197,20 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
           <button class="btn btn-red btn-sm" onclick="clearFile()">✕</button>
         </div>
       </div>
+      <div class="upzone" id="upzone-proto" onclick="document.getElementById('fi-proto').click()" style="margin-top:10px;">
+        <div class="upzone-icon">📑</div>
+        <div class="upzone-txt">Optional: drop <span>protocol .docx</span> here (auto cross-checks Study Protocol)</div>
+        <div class="upzone-txt mt-2" style="font-size:11px;color:var(--mu);">.docx only — used by Routine PK assays</div>
+      </div>
+      <input type="file" id="fi-proto" style="display:none" accept=".docx" onchange="handleProto(event)">
+      <div id="proto-info" class="hidden mt-2">
+        <div class="qcrow r-pass" style="cursor:default;display:grid;grid-template-columns:18px 1fr auto auto;">
+          <span style="font-size:13px;padding-top:2px;">📑</span>
+          <span style="font-size:12px;" id="pname"></span>
+          <span class="chip chip-info" id="psize"></span>
+          <button class="btn btn-red btn-sm" onclick="clearProto()">✕</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -229,8 +244,8 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         <div class="scroll-x" id="upload-preview-wrap"></div>
         <div class="flex gap-2 fw mt-3">
           <button class="btn btn-grn" onclick="downloadWithUpload()">⬇️ Download Original + Upload Sheet</button>
-          <button class="btn btn-sec" onclick="downloadUploadOnly()">⬇️ CDD Upload Sheet</button>
-          <button class="btn btn-sec" onclick="downloadKS()">⬇️ KS Upload Sheet</button>
+          <button class="btn btn-sec" onclick="downloadUploadOnly()">⬇️ KS Upload Sheet</button>
+          <button class="btn btn-sec" onclick="downloadKS()">⬇️ CDD Upload Sheet</button>
           <button class="btn btn-sec" onclick="copyTSV()">📋 Copy as TSV</button>
         </div>
       </div>
@@ -342,7 +357,7 @@ const TEMPLATES={
   hep_binding:  {cdd:'[Species] PPB',               cols:['Compound_ID','batch_id','Species','% Bound','% Unbound','% Recovery','% Remaining','Condition','CRO']},
   media_binding:{cdd:'[Species] PPB',               cols:['Compound_ID','batch_id','Buffer','% Bound','% Unbound','% Recovery','% Remaining at 6 hr','Condition','CRO']},
   pk_wuxi:      {cdd:'PK (WuXi)',                   cols:['Compound_ID','batch_id','Species','Route','Dose (mg/kg)','Vehicle','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)']},
-  pk_pharmaron: {cdd:'Routine PK – Pharmaron (CDD)',  cols:['Compound_ID','batch_id','Species','Route','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)','AUClast/D (h*nmol/l/(mg/kg)','Vss_obs (L/kg)','Tmax (h)','Cmax (nmol/l)','F (%)','CRO']},
+  pk_pharmaron: {cdd:'Routine PK – Pharmaron',cddLabel:'KS sheet (all parameters)',  cols:['Compound_ID','batch_id','Species','Route','Cl_obs (mL/min/kg)','T1/2 (h)','C0 (nmol/l)','AUClast (h*nmol/l)','AUCInf (h*nmol/l)','AUC_%Extrap_obs (%)','MRTInf_obs (h)','AUClast/D (h*nmol/l/(mg/kg)','Vss_obs (L/kg)','Tmax (h)','Cmax (nmol/l)','F (%)','CRO']},
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -457,6 +472,7 @@ function progP(assay){
 // STATE
 // ─────────────────────────────────────────────────────────────
 let SEL=null,WB=null,FNAME='',PARSED={},UPLOAD_ROWS=[],OVR={},PROG=null;
+let PROTO_TXT='',PROTO_NAME='';
 let TRACKER=JSON.parse(localStorage.getItem('dmpk_tk_v4')||'{"cpds":[],"st":{}}');
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -467,6 +483,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag')});
   z.addEventListener('dragleave',()=>z.classList.remove('drag'));
   z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag');processFile(e.dataTransfer.files[0])});
+  const zp=document.getElementById('upzone-proto');
+  if(zp){zp.addEventListener('dragover',e=>{e.preventDefault();zp.classList.add('drag')});zp.addEventListener('dragleave',()=>zp.classList.remove('drag'));zp.addEventListener('drop',e=>{e.preventDefault();zp.classList.remove('drag');processProtocol(e.dataTransfer.files[0])});}
 });
 
 function selectProg(prog,btn){
@@ -550,6 +568,25 @@ function processFile(file){
     }catch(err){toast('Parse error: '+err.message,'fail');}
   };
   reader.readAsBinaryString(file);
+}
+function handleProto(e){processProtocol(e.target.files[0]);}
+function clearProto(){PROTO_TXT='';PROTO_NAME='';document.getElementById('proto-info').classList.add('hidden');document.getElementById('fi-proto').value='';if(WB&&SEL)runQC();}
+function processProtocol(file){
+  if(!file)return;
+  if(typeof mammoth==='undefined'){toast('Protocol parser still loading — try again in a moment','warn');return;}
+  PROTO_NAME=file.name;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    mammoth.extractRawText({arrayBuffer:e.target.result}).then(res=>{
+      PROTO_TXT=res.value||'';
+      document.getElementById('pname').textContent=file.name;
+      document.getElementById('psize').textContent=(file.size/1024).toFixed(1)+' KB';
+      document.getElementById('proto-info').classList.remove('hidden');
+      toast('Protocol loaded — cross-check active','pass');
+      if(WB&&SEL)runQC();
+    }).catch(err=>toast('Protocol parse error: '+err.message,'fail'));
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1930,6 +1967,66 @@ function doRoutinePKPharmaron(wb){
     {key:'batch',label:'Batch ID match (report Upload vs Formulation)',st:(batchRep&&batchForm)?(String(batchRep).trim().toUpperCase()===batchForm.toUpperCase()?'pass':'warn'):'warn',val:`Formulation: ${batchForm||'?'} · Report Upload: ${batchRep||'?'}`,note:(batchRep&&batchForm&&String(batchRep).trim().toUpperCase()!==batchForm.toUpperCase())?'⚠️ Batch mismatch — verify before CDD upload':''},
   ]});
 
+  // ===== STUDY PROTOCOL (auto cross-check report vs uploaded protocol .docx) =====
+  const rcRows=sheetRows(wb,'Report Cover',80)||[];
+  const amRows=sheetRows(wb,'Analytical Method',60)||[];
+  const rawAll=sheetRows(wb,'Raw Data',400)||[];
+  const rcGrep=re=>{for(const r of rcRows)for(const c of r){if(re.test(String(c||'')))return String(c).trim();}return null;};
+  const rcAfter=re=>{for(const r of rcRows){for(let j=0;j<r.length;j++){if(re.test(String(r[j]||''))){for(let k=j+1;k<r.length;k++){if(String(r[k]||'').trim()!=='')return String(r[k]).trim();}}}}return null;};
+  const rcRouteNum=(route,unit)=>{for(const r of rcRows){const cells=r.map(c=>String(c||''));if(cells.includes(route)&&cells.some(c=>c.includes(unit))){const idx=cells.indexOf(route);for(let k=idx+1;k<r.length;k++){const v=N(r[k]);if(v!==null)return v;}}}return null;};
+  const rcSamp=route=>{for(const r of rcRows){const cells=r.map(c=>String(c||''));if(cells.some(c=>/Blood Sampling/i.test(c))&&cells.includes(route)){const s=cells.find(c=>/\d.*,.*\d/.test(c));if(s)return s.trim();}}return null;};
+  const protoNo=rcAfter(/Study Protocol\s*#/i)||rcGrep(/PH-DMPK/i);
+  const strainR=rcAfter(/Species\/strain/i);
+  const sexR=rcAfter(/^Sex/i);
+  const vehicleR=rcGrep(/HP-?β-?CD|HP-?b-?CD|cyclodextrin/i);
+  const ivDoseR=rcRouteNum('IV','mg/kg'),poDoseR=rcRouteNum('PO','mg/kg');
+  const ivConcR=rcRouteNum('IV','mg/mL'),poConcR=rcRouteNum('PO','mg/mL');
+  const sampIV=rcSamp('IV'),sampPO=rcSamp('PO');
+  const PT=String(PROTO_TXT||'').toLowerCase().replace(/β/g,'b').replace(/\s+/g,' ');
+  const hasProto=PT.length>30;
+  const inP=needle=>{const s=String(needle==null?'':needle).toLowerCase().replace(/β/g,'b').replace(/\s+/g,' ').trim();return s!==''&&PT.includes(s);};
+  const tps=s=>(String(s||'').match(/\d+(?:\.\d+)?/g)||[]).map(Number).filter(x=>x>0&&x<=48);
+  const spRow=(label,reportVal,ok)=>{
+    if(!hasProto)return{key:label.replace(/\W+/g,'_'),label,st:'manual',val:(reportVal!=null&&reportVal!=='')?String(reportVal):'—',note:'Upload protocol .docx to auto-verify, or click to confirm'};
+    return{key:label.replace(/\W+/g,'_'),label,st:ok?'pass':'warn',val:(reportVal!=null&&reportVal!=='')?String(reportVal):'—',note:ok?'✓ matches protocol':'⚠️ not found in protocol — verify'};
+  };
+  const spRows=[];
+  spRows.push({key:'proto_src',label:'Protocol document',st:'info',val:hasProto?(PROTO_NAME||'uploaded .docx'):'Not uploaded',note:hasProto?'Auto cross-check active':'Drop the protocol .docx in the Protocol slot to auto-verify'});
+  spRows.push(spRow('Protocol # match',protoNo,protoNo?inP(protoNo):false));
+  spRows.push(spRow('Test article / compound match',compoundFull,inP(stem)||inP(compoundFull)));
+  spRows.push(spRow('Animal strain',strainR,inP((String(strainR||'').match(/C57BL6|SD|Sprague|Beagle|Wistar|CD-1|nude|NHP|monkey/i)||[''])[0])));
+  spRows.push(spRow('Sex',sexR,inP(sexR)));
+  spRows.push(spRow('Route of administration','IV / PO',inP('iv')&&(inP('po')||inP('oral'))));
+  spRows.push(spRow('Matrix (plasma)','plasma',inP('plasma')));
+  spRows.push(spRow('Vehicle / formulation',vehicleR,inP('hp')&&inP('cd')));
+  spRows.push(spRow('IV dose (mg/kg)',ivDoseR!=null?fmt(ivDoseR,2)+' mg/kg':'—',ivDoseR!=null?inP(String(ivDoseR)):false));
+  spRows.push(spRow('PO dose (mg/kg)',poDoseR!=null?fmt(poDoseR,2)+' mg/kg':'—',poDoseR!=null?inP(String(poDoseR)):false));
+  spRows.push(spRow('IV dosing conc (mg/mL)',ivConcR!=null?fmt(ivConcR,3)+' mg/mL':'—',ivConcR!=null?inP(String(ivConcR)):false));
+  spRows.push(spRow('PO dosing conc (mg/mL)',poConcR!=null?fmt(poConcR,3)+' mg/mL':'—',poConcR!=null?inP(String(poConcR)):false));
+  {const t=tps(sampIV);spRows.push(spRow('IV sampling timing',sampIV,t.length>0&&t.every(x=>PT.includes(String(x)))));}
+  {const t=tps(sampPO);spRows.push(spRow('PO sampling timing',sampPO,t.length>0&&t.every(x=>PT.includes(String(x)))));}
+  sections.push({title:'Study Protocol',icon:'📑',rows:spRows});
+
+  // ===== BIOANALYTICAL =====
+  let peakName=null,q1=null,q3=null;
+  for(let i=0;i<rawAll.length;i++){const a=String((rawAll[i]||[])[0]||'');
+    if(/Peak Name:\s*GEN/i.test(a))peakName=a.replace(/Peak Name:\s*/i,'').trim();
+    if(peakName&&/Q1\/Q3 Masses/i.test(a)){const m=a.match(/([\d.]+)\s*\/\s*([\d.]+)/);if(m){q1=parseFloat(m[1]);q3=parseFloat(m[2]);}break;}
+  }
+  const gradientOK=amRows.some(r=>/Gradient/i.test(String(r[0]||'')))||amRows.some(r=>(r||[]).some(c=>/A\s*\(%\)/i.test(String(c||''))));
+  const crashTxt=rcGrep(/plasma.*acetonitrile|acetonitrile.*plasma|protein precipitation|\bPPE\b/i)||'';
+  const mpv=crashTxt.match(/(\d+)\s*u?l[^0-9]*plasma/i),mav=crashTxt.match(/(\d+)\s*u?l[^0-9]*acetonitrile/i);
+  const crashRatio=(mpv&&mav)?parseFloat(mav[1])/parseFloat(mpv[1]):null;
+  let rsq=null;for(const r of rawAll){if(/Correlation coefficient/i.test(String(r[0]||''))){rsq=N(r[1]);break;}}
+  const mwExp=MW!=null?MW+1:null;
+  const bioRows=[];
+  bioRows.push({key:'cname',label:'Compound name match (Raw Data peak)',st:peakName?(peakName.toUpperCase().includes(stem.toUpperCase())?'pass':'warn'):'fail',val:peakName||'Peak name not found',note:''});
+  bioRows.push({key:'q1',label:'Q1 m/z ≈ MW+1',st:(q1!=null&&mwExp!=null)?(Math.abs(q1-mwExp)<=1.0?'pass':'warn'):'fail',val:q1!=null?`Q1 ${fmt(q1,2)} vs MW+1 ${mwExp!=null?fmt(mwExp,2):'?'}`:'Q1 not found',note:q3!=null?`Q3 ${fmt(q3,2)}`:''});
+  bioRows.push({key:'grad',label:'LC gradient defined',st:gradientOK?'pass':'fail',val:gradientOK?'Gradient table present in Analytical Method':'Gradient not found',note:''});
+  bioRows.push({key:'crash',label:'≥4 volumes crash (organic : plasma)',st:crashRatio!=null?(crashRatio>=4?'pass':'warn'):'manual',val:crashRatio!=null?`${fmt(crashRatio,1)}× (${mav?mav[1]:'?'} µL ACN : ${mpv?mpv[1]:'?'} µL plasma)`:'Click to confirm crash ratio',note:''});
+  bioRows.push({key:'rsq',label:'Standard curve R² ≥ 0.99',st:rsq!=null?(rsq>=0.99?'pass':(rsq>=0.98?'warn':'fail')):'fail',val:rsq!=null?fmt(rsq,4):'R² not found',note:''});
+  sections.push({title:'Bioanalytical',icon:'⚗️',rows:bioRows});
+
   // ===== FORMULATION =====
   const formRows=[{key:'info',label:'Compound info',st:'info',val:`MW ${MW!=null?fmt(MW,2):'?'} · FW ${FW!=null?fmt(FW,2):'?'} · Purity ${purity!=null?Math.round(purity*100)+'%':'?'}`,note:''}];
   for(const r of fRows){
@@ -1943,6 +2040,38 @@ function doRoutinePKPharmaron(wb){
   formRows.push({key:'color',label:`Confirm color / appearance match (${appearance||'?'})`,st:'manual',val:'',note:'Click to confirm appearance'});
   formRows.push({key:'visual',label:'Formulation visual check',st:'manual',val:'',note:'Click to confirm formulation visually inspected & acceptable'});
   sections.push({title:'Formulation',icon:'⚗️',rows:formRows});
+
+  // ===== RAW DATA ACCEPTANCE =====
+  const rdRows=[];
+  let hrr=rawAll.findIndex(r=>(r||[]).some(c=>/Sample Type/i.test(String(c||'')))&&(r||[]).some(c=>/IS Peak Area/i.test(String(c||''))));
+  if(hrr>=0){
+    const H=rawAll[hrr].map(c=>String(c||''));
+    const ci=re=>H.findIndex(h=>re.test(h));
+    const cType=ci(/Sample Type/i),cAna=ci(/Analyte Peak Area/i),cIS=ci(/IS Peak Area/i),cAcc=ci(/Accuracy/i),cUse=ci(/Use Record/i);
+    const data=rawAll.slice(hrr+1).filter(r=>String((r||[])[0]||'').trim()!=='');
+    const isPA=data.map(r=>N(r[cIS])).filter(v=>v!==null&&v>0);
+    let isCV=null;if(isPA.length>=3){const mn=isPA.reduce((a,b)=>a+b,0)/isPA.length;const sd=Math.sqrt(isPA.map(v=>(v-mn)**2).reduce((a,b)=>a+b,0)/isPA.length);isCV=sd/mn*100;}
+    rdRows.push({key:'iscv',label:'IS Peak Area CV ≤ 25%',st:isCV!=null?(isCV<=25?'pass':'fail'):'fail',val:isCV!=null?fmt(isCV,1)+`% (n=${isPA.length})`:'IS peak area not found',note:''});
+    const std=data.filter(r=>/^Standard$/i.test(String(r[cType]||'')));
+    const stdUsed=std.filter(r=>cUse<0?N(r[cAcc])!==null:N(r[cUse])===1);
+    const stdBad=stdUsed.filter(r=>{const a=N(r[cAcc]);return a===null||a<80||a>120;});
+    rdRows.push({key:'std',label:'Standard curve acceptance (used standards within ±20%, ≥6 levels)',st:std.length?((stdUsed.length>=6&&stdBad.length===0)?'pass':'warn'):'fail',val:std.length?`${stdUsed.length}/${std.length} standards used`:'No standards found',note:stdBad.length?`${stdBad.length} used standard(s) outside 80–120%`:''});
+    const qc=data.filter(r=>/Quality Control/i.test(String(r[cType]||'')));
+    const qcIn=qc.filter(r=>{const a=N(r[cAcc]);return a!==null&&a>=85&&a<=115;});
+    rdRows.push({key:'qc',label:'QC acceptance (≥67% within ±15%)',st:qc.length?((qcIn.length/qc.length>=0.667)?'pass':'fail'):'fail',val:qc.length?`${qcIn.length}/${qc.length} within ±15%`:'No QC samples found',note:''});
+    const blanks=data.filter(r=>/Blank/i.test(String(r[cType]||'')));
+    const maxBlank=Math.max(0,...blanks.map(r=>N(r[cAna])||0));
+    const stdPA=std.map(r=>N(r[cAna])).filter(v=>v!==null&&v>0);
+    const lloqPA=stdPA.length?Math.min(...stdPA):null;
+    const carry=lloqPA?maxBlank/lloqPA*100:(maxBlank===0?0:null);
+    rdRows.push({key:'carry',label:'% Carryover ≤ 20%',st:carry!=null?(carry<=20?'pass':'fail'):'manual',val:carry!=null?fmt(carry,2)+'%':'Click to confirm carryover',note:lloqPA!=null?`max blank ${fmt(maxBlank,0)} ÷ LLOQ ${fmt(lloqPA,0)}`:''});
+  } else {
+    rdRows.push({key:'rd_na',label:'Raw Data table',st:'fail',val:'Could not locate Sample Type / IS Peak Area columns',note:''});
+  }
+  rdRows.push({key:'sn',label:'Signal / Noise ≥ 3:1',st:'manual',val:'',note:'Click to confirm S/N from chromatograms'});
+  rdRows.push({key:'chrom',label:'Chromatograms reviewed',st:'manual',val:'',note:'Click to confirm chromatograms inspected'});
+  sections.push({title:'Raw Data',icon:'📈',rows:rdRows});
+  try{const isChecks=runISChecks(wb,['raw'],'Routine PK');if(isChecks&&isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});}catch(e){}
 
   // ===== SUMMARY per group (IV / PO) =====
   for(const o of groups){
@@ -3276,7 +3405,7 @@ function renderUploadPreview(){
   const cn=document.getElementById('upload-cdd-name');
   if(!tmpl){wrap.innerHTML='';return;}
   rc.textContent=UPLOAD_ROWS.length+' row'+(UPLOAD_ROWS.length!==1?'s':'');
-  cn.textContent='CDD: '+tmpl.cdd;
+  cn.textContent=tmpl.cddLabel||('CDD: '+tmpl.cdd);
   buildEditableTable(wrap,tmpl.cols,UPLOAD_ROWS);
 }
 
@@ -3416,11 +3545,11 @@ function copyTSV(){
 }
 function downloadKS(){
   const ks=PARSED&&PARSED.ksRows, cols=PARSED&&PARSED.ksCols;
-  if(!ks||!ks.length||!cols){toast('No KS upload sheet for this assay','warn');return;}
+  if(!ks||!ks.length||!cols){toast('No CDD upload sheet for this assay','warn');return;}
   const wb2=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([cols,...ks.map(r=>cols.map(c=>r[c]!==undefined?r[c]:''))]),'Upload');
-  XLSX.writeFile(wb2,(FNAME.replace(/\.[^.]+$/,'')||'routine_pk')+'_KS_upload.xlsx');
-  toast('KS upload sheet downloaded','pass');
+  XLSX.writeFile(wb2,(FNAME.replace(/\.[^.]+$/,'')||'routine_pk')+'_CDD_upload.xlsx');
+  toast('CDD upload sheet downloaded','pass');
 }
 
 // ─────────────────────────────────────────────────────────────
