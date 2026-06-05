@@ -332,7 +332,7 @@ const ASSAYS=[
   {id:'hepatotox',    name:'Hepatotoxicity',            icon:'🫀',cat:'safety'},
   // PK
   {id:'pk_wuxi',      name:'PK (WuXi)',                 icon:'🐭',cat:'pk'},
-  {id:'pk_pharmaron', name:'Routine PK – Pharmaron',     icon:'🐀',cat:'pk'},
+  {id:'pk_pharmaron', name:'Routine PK',     icon:'🐀',cat:'pk'},
 ];
 
 const TEMPLATES={
@@ -1059,7 +1059,7 @@ function parseAndCheck(id,wb){
     case'phototox':     return doPhototox(wb);
     case'hepatotox':    return doHepatotox(wb);
     case'pk_wuxi':      return doPK(wb,'WuXi');
-    case'pk_pharmaron': return doRoutinePKPharmaron(wb);
+    case'pk_pharmaron': return doRoutinePK(wb);
     default: throw new Error('Unknown assay: '+id);
   }
 }
@@ -1096,38 +1096,30 @@ function getReportInfo(wb){
 // Bioanalytical: for Pharmaron CYP/UGT/hERG format (Q1/Q3/DP/CE)
 // Compound ID may be in col 0 or col 1 depending on workbook version
 function getBioanalytical_CYPS(wb){
-  const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'Bioanalysis',80)||sheetRows(wb,'Method',80)||[];
-  if(!rows.length) return [];
-  // Detect header row to find column positions for Q1, Q3, DP, CE
-  let q1col=2,q3col=3,dpcol=4,cecol=5,idcol=1;
-  for(let i=0;i<Math.min(rows.length,10);i++){
-    const r=rows[i];
-    const txt=r.map(c=>String(c||'').toLowerCase());
-    if(txt.some(c=>c.includes('q1')||c.includes('q3'))){
-      const q1i=txt.findIndex(c=>c.includes('q1'));
-      const q3i=txt.findIndex(c=>c.includes('q3'));
-      const dpi=txt.findIndex(c=>c==='dp'||c.includes('declustering'));
-      const cei=txt.findIndex(c=>c==='ce'||c.includes('collision'));
-      if(q1i>=0)q1col=q1i;
-      if(q3i>=0)q3col=q3i;
-      if(dpi>=0)dpcol=dpi;
-      if(cei>=0)cecol=cei;
-      break;
-    }
-  }
-  const cpds=[];
-  for(const r of rows){
-    // Check col 0 and col 1 for GEN- pattern
-    const c0=String(r[0]||'').trim();
-    const c1=String(r[1]||'').trim();
-    const cid=c0.match(/GEN-\d/)?c0:c1.match(/GEN-\d/)?c1:null;
-    if(!cid)continue;
-    cpds.push({id:cid,q1:N(r[q1col]),q3:N(r[q3col]),dp:N(r[dpcol]),ce:N(r[cecol])});
-  }
-  return cpds;
+  // Read MS parameters from ANY bioanalytical-type tab. Pharmaron uses
+  // "Bioanalytical Method"; WuXi splits MS params into an "LC-MS method" tab —
+  // combine all matching sheets and parse both column tables and MRM-style
+  // strings (e.g. "GEN-…:[M+H]+ m/z: 604.2 / 414.0").
+  let names=wb.SheetNames.filter(s=>/bioanalytical|bioanalysis|lc[\s-]*ms|analytical method|ms method/i.test(s));
+  if(!names.length)names=wb.SheetNames.filter(s=>/method/i.test(s));
+  let rows=[];
+  for(const sn of names){const rr=sheetRows(wb,sn,150);if(rr)rows=rows.concat(rr);}
+  if(!rows.length)return [];
+  const byId={};
+  const put=(id,f)=>{if(!id)return;const k=String(id).trim();if(!byId[k])byId[k]={id:k,q1:null,q3:null,dp:null,ce:null};for(const p in f){if(f[p]!==null&&f[p]!==undefined&&byId[k][p]===null)byId[k][p]=f[p];}};
+  // column-table parse — only when an explicit Q1/Q3 header is present
+  let q1col=-1,q3col=-1,dpcol=-1,cecol=-1,hdr=false;
+  for(let i=0;i<rows.length;i++){const txt=(rows[i]||[]).map(c=>String(c||'').toLowerCase());
+    if(txt.some(c=>/\bq1\b|q1\s*\(/.test(c))&&txt.some(c=>/\bq3\b|q3\s*\(/.test(c))){
+      q1col=txt.findIndex(c=>/\bq1\b|q1\s*\(/.test(c));q3col=txt.findIndex(c=>/\bq3\b|q3\s*\(/.test(c));
+      dpcol=txt.findIndex(c=>c==='dp'||c.includes('declustering'));cecol=txt.findIndex(c=>c==='ce'||c.includes('collision'));hdr=true;break;}}
+  if(hdr){for(const r of rows){const c0=String(r[0]||'').trim(),c1=String(r[1]||'').trim();const cid=c0.match(/GEN-\d/)?c0:c1.match(/GEN-\d/)?c1:null;if(!cid)continue;put(cid,{q1:q1col>=0?N(r[q1col]):null,q3:q3col>=0?N(r[q3col]):null,dp:dpcol>=0?N(r[dpcol]):null,ce:cecol>=0?N(r[cecol]):null});}}
+  // MRM-string parse (any tab): "<id> … m/z: Q1 / Q3"
+  for(const r of rows){for(const c of (r||[])){const s=String(c||'');const m=s.match(/(GEN-\d[\w-]*)\s*:?[^\d]*?m\/z[:\s]*([\d.]+)\s*\/\s*([\d.]+)/i);if(m)put(m[1],{q1:parseFloat(m[2]),q3:parseFloat(m[3])});}}
+  return Object.values(byId);
 }
 
-// Bioanalytical: for Pharmaron PPB/Mic/BP format (Q1/Q3 positions vary)
+
 function getBioanalytical_PPB(wb){
   const rows=sheetRows(wb,'Bioanalytical',80)||sheetRows(wb,'Bioanalysis',80)||sheetRows(wb,'Method',80)||[];
   if(!rows.length) return [];
@@ -1944,63 +1936,84 @@ function doMediaBinding(wb){
 // Parameters(nM/ng), PK_Results(ng/nM)). Phase 1: Summary PK parameters,
 // ng↔nM conversion check, KS + CDD upload tabs, manual checks.
 // ─────────────────────────────────────────────────────────────
-function doRoutinePKPharmaron(wb){
+function doRoutinePK(wb){
   const rpt=getReportInfo(wb);
-  // ---- Formulation: MW / FW / purity / compound / batch / appearance ----
+  const _allSheets=wb.SheetNames;
+  // Whole-workbook label scanner: value to the right of (else below) a matching label.
+  const wbScan=(labelRe,vt)=>{for(const sn of _allSheets){const rows=sheetRows(wb,sn,160)||[];for(let i=0;i<rows.length;i++){const r=rows[i]||[];for(let j=0;j<r.length;j++){if(labelRe.test(String(r[j]||'').trim())){for(let k=j+1;k<r.length;k++){const v=r[k];if(v!==null&&v!==undefined&&String(v).trim()!==''&&(!vt||vt(v)))return v;}if(rows[i+1]){const v=rows[i+1][j];if(v!=null&&String(v).trim()!==''&&(!vt||vt(v)))return v;}}}}}return null;};
+  // strict numeric: only real numbers / pure-numeric strings (so IDs like 'C1001' are NOT read as 1001)
+  const numCell=v=>{if(typeof v==='number')return isFinite(v)?v:null;const t=String(v==null?'':v).trim();return /^[+-]?\d*\.?\d+(?:e[+-]?\d+)?$/i.test(t)?parseFloat(t):null;};
   const fRows=sheetRows(wb,'Formulation',60)||[];
   const fcell=(lbl)=>{for(const r of fRows){for(let j=0;j<r.length;j++){if(String(r[j]||'').trim().toLowerCase().startsWith(lbl.toLowerCase()))return r[j+1];}}return null;};
-  const MW=N(fcell('MW')),FW=N(fcell('FW')),purity=N(fcell('Purity'));
-  const compoundFull=String(fcell('Compound ID')||'').trim();
-  const batchForm=String(fcell('Batch')||'').trim();
-  const appearance=String(fcell('Appearance')||'').trim();
-  const stem=(compoundFull.match(/GEN-\d{3,}/i)||[compoundFull])[0];
+  // ---- MW / FW / purity / compound / appearance (search every sheet) ----
+  const MW=N(fcell('MW'))??N(wbScan(/^molecular weight$|^mol\.?\s*wt\b|^MW(\s*\(.*\))?$/i,v=>{const n=N(v);return n!==null&&n>50&&n<3000;}));
+  const FW=N(fcell('FW'))??N(wbScan(/^formula weight$|^FW(\s*\(.*\))?$/i,v=>{const n=N(v);return n!==null&&n>50&&n<3000;}));
+  let purity=N(fcell('Purity'))??N(wbScan(/^purity/i,v=>N(v)!==null)); if(purity!==null&&purity>1.5)purity=purity/100;
+  let compoundFull=(String(fcell('Compound ID')||'').trim())||String(wbScan(/^administered compound|^analyte compound|^compound\s*id|^compound\s*#|^test article|^compound\b/i)||'').trim();
+  const appearance=(String(fcell('Appearance')||'').trim())||String(wbScan(/^appearance|^description\b/i)||'').trim();
 
-  // ---- report Upload tab: consolidated per-group PK params (CDD source) ----
+  // ---- report Upload tab: consolidated per-group PK params ----
   const upRows=sheetRows(wb,'Upload',30)||[];
   const upHdr=(upRows[0]||[]).map(c=>String(c||'').trim());
   const groups=[];
-  for(let i=1;i<upRows.length;i++){
-    const r=upRows[i]; if(!String(r[0]||'').match(/GEN-/i))continue;
-    const o={}; upHdr.forEach((h,j)=>{o[h]=r[j];}); groups.push(o);
-  }
+  for(let i=1;i<upRows.length;i++){const r=upRows[i]; if(!String(r[0]||'').match(/GEN-/i))continue; const o={}; upHdr.forEach((h,j)=>{o[h]=r[j];}); groups.push(o);}
   const gv=(o,re)=>{const k=upHdr.find(h=>re.test(h));return k!==undefined?o[k]:undefined;};
+  if(!compoundFull&&groups[0])compoundFull=String(gv(groups[0],/compound[_ ]?id|^compound/i)||'').trim();
+  const stem=(compoundFull.match(/GEN-\d{3,}/i)||[compoundFull])[0]||'';
   const batchRep=groups[0]?gv(groups[0],/batch/i):undefined;
+  const fBatch=String(fcell('Batch')||'').trim();
+  let batchForm=fBatch||(batchRep!=null?String(batchRep).trim():'');
+  const cro=(groups[0]?String(gv(groups[0],/^CRO$/i)||'').trim():'')||'Pharmaron';
+  const grpByRoute=re=>groups.find(o=>re.test(String(gv(o,/route/i)||'')));
 
-  // ---- Parameters(nM): per-animal lambda points / Rsq / Tlast / Clast ----
-  const pRows=sheetRows(wb,'Parameters(nM)',90)||[];
-  const paramVals=(label,side)=>{const lc=side==='PO'?8:1;const vc=side==='PO'?[10,11,12]:[3,4,5];for(const r of pRows){if(String(r[lc]||'').trim()===label)return vc.map(c=>N(r[c])).filter(v=>v!==null);}return [];};
-  // ---- Parameters(ng): doses ----
+  // ---- doses (Upload Dose col -> Parameters(ng) -> Report Cover) ----
   const pngRows=sheetRows(wb,'Parameters(ng)',90)||[];
   const doseNg=(side)=>{const lc=side==='PO'?8:1;const vc=side==='PO'?[10,11,12]:[3,4,5];for(const r of pngRows){if(String(r[lc]||'').trim()==='Dose'){const v=vc.map(c=>N(r[c])).filter(x=>x!==null);return v.length?v[0]:null;}}return null;};
-  const ivDose=doseNg('IV'),poDose=doseNg('PO');
+  const upDose=re=>{const o=grpByRoute(re);return o?N(gv(o,/dose.*mg\/kg|^dose\b/i)):null;};
+  // ---- Parameters(nM): per-animal lambda/Rsq/Tlast/Clast (Pharmaron only) ----
+  const pRows=sheetRows(wb,'Parameters(nM)',90)||[];
+  const paramVals=(label,side)=>{const lc=side==='PO'?8:1;const vc=side==='PO'?[10,11,12]:[3,4,5];for(const r of pRows){if(String(r[lc]||'').trim()===label)return vc.map(c=>N(r[c])).filter(v=>v!==null);}return [];};
+
+  // ---- dose-formulation validation (accuracy + nominal conc) from any sheet ----
+  const doseVal=(()=>{const out=[];for(const sn of _allSheets){const rows=sheetRows(wb,sn,90)||[];const h=rows.findIndex(r=>(r||[]).some(c=>/accuracy/i.test(String(c||'')))&&(r||[]).some(c=>/nominal/i.test(String(c||''))));if(h<0)continue;const H=rows[h].map(c=>String(c||''));const ci=re=>H.findIndex(c=>re.test(c));const cR=ci(/route/i),cN=ci(/nominal/i),cM=ci(/mean/i),cA=ci(/accuracy/i);for(let i=h+1;i<rows.length;i++){const r=rows[i]||[];const rt=String((cR>=0?r[cR]:r[0])||'');const acc=N(r[cA]);if(acc!==null&&/\b(IV|PO|IM|SC|IP)\b/i.test(rt)){const route=(rt.match(/IV|PO|IM|SC|IP/i)||[''])[0].toUpperCase();if(!out.find(x=>x.route===route))out.push({route,nominal:cN>=0?N(r[cN]):null,mean:cM>=0?N(r[cM]):null,acc});}}if(out.length)break;}return out;})();
+  const concByRoute=route=>{const d=doseVal.find(x=>x.route===route);return d?d.nominal:null;};
 
   const sections=[];
 
   // ===== MAIN =====
+  const batchMismatch=fBatch&&batchRep&&fBatch.toUpperCase()!==String(batchRep).trim().toUpperCase();
   sections.push({title:'Main',icon:'📋',rows:[
-    {key:'rn',label:'Report Number',st:'info',val:rpt.reportNum||compoundFull||'—',note:'CRO: Pharmaron'},
-    {key:'mw',label:`MW match — ${stem} (report MW ${MW!=null?fmt(MW,2)+' g/mol':'?'}, FW ${FW!=null?fmt(FW,2):'?'}, purity ${purity!=null?Math.round(purity*100)+'%':'?'})`,st:'manual',val:'',note:'Click to confirm MW against internal registry'},
-    {key:'batch',label:'Batch ID match (report Upload vs Formulation)',st:(batchRep&&batchForm)?(String(batchRep).trim().toUpperCase()===batchForm.toUpperCase()?'pass':'warn'):'warn',val:`Formulation: ${batchForm||'?'} · Report Upload: ${batchRep||'?'}`,note:(batchRep&&batchForm&&String(batchRep).trim().toUpperCase()!==batchForm.toUpperCase())?'⚠️ Batch mismatch — verify before CDD upload':''},
+    {key:'rn',label:'Report Number',st:'info',val:rpt.reportNum||String(wbScan(/^study no|study number|study protocol\s*#/i)||'')||compoundFull||'—',note:'CRO: '+cro},
+    {key:'mw',label:`MW match — ${stem||compoundFull||'compound'} (report MW ${MW!=null?fmt(MW,2)+' g/mol':'?'}, FW ${FW!=null?fmt(FW,2):'?'}, purity ${purity!=null?Math.round(purity*100)+'%':'?'})`,st:'manual',val:'',note:'Click to confirm MW against internal registry'},
+    {key:'batch',label:'Batch ID',st:batchMismatch?'warn':'info',val:`Upload: ${batchRep||'?'}${fBatch?(' · Formulation: '+fBatch):''}`,note:batchMismatch?'⚠️ Batch mismatch — verify before CDD upload':''},
   ]});
 
-  // ===== STUDY PROTOCOL (auto cross-check report vs uploaded protocol .docx) =====
-  const rcRows=sheetRows(wb,'Report Cover',80)||[];
-  const amRows=sheetRows(wb,'Analytical Method',60)||[];
-  const rawAll=sheetRows(wb,'Raw Data',400)||[];
-  const rcGrep=re=>{for(const r of rcRows)for(const c of r){if(re.test(String(c||'')))return String(c).trim();}return null;};
+  // ===== STUDY PROTOCOL (cross-check report vs uploaded protocol .docx) =====
+  const rcRows=[].concat(sheetRows(wb,'Report Cover',80)||[],sheetRows(wb,'PK Report(nM)',60)||[],sheetRows(wb,'PK Report(ng)',60)||[],sheetRows(wb,'Dose',60)||[]);
+  const rawAll=sheetRows(wb,rawSheetName(wb)||'Raw Data',400)||sheetRows(wb,'Raw Data',400)||[];
+  const rcGrep=re=>{for(const r of rcRows)for(const c of (r||[])){if(re.test(String(c||'')))return String(c).trim();}return null;};
   const rcAfter=re=>{for(const r of rcRows){for(let j=0;j<r.length;j++){if(re.test(String(r[j]||''))){for(let k=j+1;k<r.length;k++){if(String(r[k]||'').trim()!=='')return String(r[k]).trim();}}}}return null;};
   const rcRouteNum=(route,unit)=>{for(const r of rcRows){const cells=r.map(c=>String(c||''));if(cells.includes(route)&&cells.some(c=>c.includes(unit))){const idx=cells.indexOf(route);for(let k=idx+1;k<r.length;k++){const v=N(r[k]);if(v!==null)return v;}}}return null;};
-  const rcSamp=route=>{for(const r of rcRows){const cells=r.map(c=>String(c||''));if(cells.some(c=>/Blood Sampling/i.test(c))&&cells.includes(route)){const s=cells.find(c=>/\d.*,.*\d/.test(c));if(s)return s.trim();}}return null;};
-  const protoNo=rcAfter(/Study Protocol\s*#/i)||rcGrep(/PH-DMPK/i);
-  const strainR=rcAfter(/Species\/strain/i);
-  const sexR=rcAfter(/^Sex/i);
-  const vehicleR=rcGrep(/HP-?β-?CD|HP-?b-?CD|cyclodextrin/i);
-  const ivDoseR=rcRouteNum('IV','mg/kg'),poDoseR=rcRouteNum('PO','mg/kg');
-  const ivConcR=rcRouteNum('IV','mg/mL'),poConcR=rcRouteNum('PO','mg/mL');
-  const sampIV=rcSamp('IV'),sampPO=rcSamp('PO');
+  const rcSamp=route=>{for(const r of rcRows){const cells=r.map(c=>String(c||''));if(cells.some(c=>/Blood Sampling|sampling time|time point/i.test(c))&&cells.includes(route)){const s=cells.find(c=>/\d.*,.*\d/.test(c));if(s)return s.trim();}}return null;};
+  const protoNo=rcAfter(/Study Protocol\s*#|^study no\.?$|study number/i)||rcGrep(/PH-DMPK|\d{6}-\d{8}/i)||rpt.reportNum;
+  const speciesStr=rcAfter(/Species\/strain|^species\b/i)||String(wbScan(/^species\b/i)||'').trim();
+  const strainR=(String(speciesStr).match(/cynomolgus|cyno|rhesus|monkey|C57BL6|SD|Sprague|Beagle|Wistar|CD-1|nude|rat|mouse|mice|dog|rabbit|minipig|NHP/i)||[speciesStr])[0];
+  const sexR=(/female/i.test(speciesStr)?'Female':/\bmale\b/i.test(speciesStr)?'Male':(rcAfter(/^Sex/i)||''));
+  const vehIV=grpByRoute(/IV/i)?String(gv(grpByRoute(/IV/i),/vehicle|formulation/i)||''):'';
+  const vehicleR=rcGrep(/HP-?β-?CD|HP-?b-?CD|cyclodextrin|PEG\s?400|TPGS|PVPVA|HPMC|methylcellulose|\bCMC\b/i)||vehIV||String(wbScan(/^vehicle|^formulation\b/i)||'');
+  const ivDoseR=upDose(/IV/i)??doseNg('IV')??rcRouteNum('IV','mg/kg');
+  const poDoseR=upDose(/PO/i)??doseNg('PO')??rcRouteNum('PO','mg/kg');
+  const ivConcR=rcRouteNum('IV','mg/mL')??concByRoute('IV');
+  const poConcR=rcRouteNum('PO','mg/mL')??concByRoute('PO');
+  const matrixR=String(wbScan(/^matrix\b/i)||'plasma');
+  const sampTimesArr=(()=>{const set=new Set();for(const sn of _allSheets){const rows=sheetRows(wb,sn,120)||[];for(let i=0;i<rows.length;i++){const r=rows[i]||[];const tc=r.findIndex(c=>/^time\s*\(h\)?$|^time\s*\(h\)/i.test(String(c||'')));if(tc>=0){for(let k=i+1;k<rows.length;k++){const v=numCell((rows[k]||[])[tc]);if(v===null)break;if(v>=0&&v<=72)set.add(v);}}}}return [...set].sort((a,b)=>a-b);})();
+  const sampStr=sampTimesArr.length?sampTimesArr.join(', ')+' h':'';
+  const sampIV=rcSamp('IV')||sampStr||String(wbScan(/sampling time|time point/i)||'');
+  const sampPO=rcSamp('PO')||sampStr||sampIV;
   const PT=String(PROTO_TXT||'').toLowerCase().replace(/β/g,'b').replace(/\s+/g,' ');
   const hasProto=PT.length>30;
   const inP=needle=>{const s=String(needle==null?'':needle).toLowerCase().replace(/β/g,'b').replace(/\s+/g,' ').trim();return s!==''&&PT.includes(s);};
+  const inAny=(...vals)=>vals.some(v=>inP(v));
   const tps=s=>(String(s||'').match(/\d+(?:\.\d+)?/g)||[]).map(Number).filter(x=>x>0&&x<=48);
   const spRow=(label,reportVal,ok)=>{
     if(!hasProto)return{key:label.replace(/\W+/g,'_'),label,st:'manual',val:(reportVal!=null&&reportVal!=='')?String(reportVal):'—',note:'Upload protocol .docx to auto-verify, or click to confirm'};
@@ -2009,51 +2022,45 @@ function doRoutinePKPharmaron(wb){
   const spRows=[];
   spRows.push({key:'proto_src',label:'Protocol document',st:'info',val:hasProto?(PROTO_NAME||'uploaded .docx'):'Not uploaded',note:hasProto?'Auto cross-check active':'Drop the protocol .docx in the Protocol slot to auto-verify'});
   spRows.push(spRow('Protocol # match',protoNo,protoNo?inP(protoNo):false));
-  spRows.push(spRow('Test article / compound match',compoundFull,inP(stem)||inP(compoundFull)));
-  spRows.push(spRow('Animal strain',strainR,inP((String(strainR||'').match(/C57BL6|SD|Sprague|Beagle|Wistar|CD-1|nude|NHP|monkey/i)||[''])[0])));
+  spRows.push(spRow('Test article / compound match',compoundFull,inAny(stem,compoundFull)));
+  spRows.push(spRow('Animal strain',strainR,inP((String(strainR||'').match(/cynomolgus|cyno|monkey|C57BL6|SD|Sprague|Beagle|Wistar|CD-1|nude|rat|mouse|dog|rabbit|NHP/i)||[''])[0])));
   spRows.push(spRow('Sex',sexR,inP(sexR)));
   spRows.push(spRow('Route of administration','IV / PO',inP('iv')&&(inP('po')||inP('oral'))));
-  spRows.push(spRow('Matrix (plasma)','plasma',inP('plasma')));
-  spRows.push(spRow('Vehicle / formulation',vehicleR,inP('hp')&&inP('cd')));
-  spRows.push(spRow('IV dose (mg/kg)',ivDoseR!=null?fmt(ivDoseR,2)+' mg/kg':'—',ivDoseR!=null?inP(String(ivDoseR)):false));
-  spRows.push(spRow('PO dose (mg/kg)',poDoseR!=null?fmt(poDoseR,2)+' mg/kg':'—',poDoseR!=null?inP(String(poDoseR)):false));
-  spRows.push(spRow('IV dosing conc (mg/mL)',ivConcR!=null?fmt(ivConcR,3)+' mg/mL':'—',ivConcR!=null?inP(String(ivConcR)):false));
-  spRows.push(spRow('PO dosing conc (mg/mL)',poConcR!=null?fmt(poConcR,3)+' mg/mL':'—',poConcR!=null?inP(String(poConcR)):false));
+  spRows.push(spRow('Matrix',matrixR,inP('plasma')));
+  spRows.push(spRow('Vehicle / formulation',vehicleR,inAny('peg','hp','cyclodextrin','tpgs','pvpva','hpmc','cmc')));
+  spRows.push(spRow('IV dose (mg/kg)',ivDoseR!=null?fmt(ivDoseR,2)+' mg/kg':'—',ivDoseR!=null?inAny(fmt(ivDoseR,0),fmt(ivDoseR,2),String(ivDoseR)):false));
+  spRows.push(spRow('PO dose (mg/kg)',poDoseR!=null?fmt(poDoseR,2)+' mg/kg':'—',poDoseR!=null?inAny(fmt(poDoseR,0),fmt(poDoseR,2),String(poDoseR)):false));
+  spRows.push(spRow('IV dosing conc (mg/mL)',ivConcR!=null?fmt(ivConcR,3)+' mg/mL':'—',ivConcR!=null?inAny(fmt(ivConcR,1),fmt(ivConcR,3),String(ivConcR)):false));
+  spRows.push(spRow('PO dosing conc (mg/mL)',poConcR!=null?fmt(poConcR,3)+' mg/mL':'—',poConcR!=null?inAny(fmt(poConcR,1),fmt(poConcR,3),String(poConcR)):false));
   {const t=tps(sampIV);spRows.push(spRow('IV sampling timing',sampIV,t.length>0&&t.every(x=>PT.includes(String(x)))));}
   {const t=tps(sampPO);spRows.push(spRow('PO sampling timing',sampPO,t.length>0&&t.every(x=>PT.includes(String(x)))));}
   sections.push({title:'Study Protocol',icon:'📑',rows:spRows});
 
-  // ===== BIOANALYTICAL =====
-  let peakName=null,q1=null,q3=null;
-  for(let i=0;i<rawAll.length;i++){const a=String((rawAll[i]||[])[0]||'');
-    if(/Peak Name:\s*GEN/i.test(a))peakName=a.replace(/Peak Name:\s*/i,'').trim();
-    if(peakName&&/Q1\/Q3 Masses/i.test(a)){const m=a.match(/([\d.]+)\s*\/\s*([\d.]+)/);if(m){q1=parseFloat(m[1]);q3=parseFloat(m[2]);}break;}
-  }
-  const gradientOK=amRows.some(r=>/Gradient/i.test(String(r[0]||'')))||amRows.some(r=>(r||[]).some(c=>/A\s*\(%\)/i.test(String(c||''))));
-  const crashTxt=rcGrep(/plasma.*acetonitrile|acetonitrile.*plasma|protein precipitation|\bPPE\b/i)||'';
-  const mpv=crashTxt.match(/(\d+)\s*u?l[^0-9]*plasma/i),mav=crashTxt.match(/(\d+)\s*u?l[^0-9]*acetonitrile/i);
-  const crashRatio=(mpv&&mav)?parseFloat(mav[1])/parseFloat(mpv[1]):null;
-  let rsq=null;for(const r of rawAll){if(/Correlation coefficient/i.test(String(r[0]||''))){rsq=N(r[1]);break;}}
+  // ===== BIOANALYTICAL (reads Bioanalytical + LC-MS method tabs) =====
+  const bio=getBioanalytical_CYPS(wb);
+  const analyte=bio.find(c=>stem&&c.id.toUpperCase().includes(stem.toUpperCase()))||bio[0]||null;
+  let peakName=null;for(const r of rawAll){const a=String((r||[])[0]||'');if(/Peak Name:\s*GEN/i.test(a)){peakName=a.replace(/Peak Name:\s*/i,'').trim();break;}}
+  if(!peakName)peakName=analyte?analyte.id:compoundFull;
+  let q1=analyte?analyte.q1:null,q3=analyte?analyte.q3:null;
+  if(q1==null){for(const r of rawAll){const a=(r||[]).map(c=>String(c||'')).join(' ');const m=a.match(/(?:Q1\/Q3 Masses|Extraction|m\/z)[:\s]*([\d.]+)\s*\/\s*([\d.]+)/i);if(m&&(MW==null||Math.abs(parseFloat(m[1])-(MW+1))<=3)){q1=parseFloat(m[1]);q3=parseFloat(m[2]);break;}}}
+  const gradientOK=_allSheets.some(sn=>{const rows=sheetRows(wb,sn,80)||[];return rows.some(r=>(r||[]).some(c=>/mobile phase\s*b|\bgradient\b|^\s*A\s*\(%\)|\bB\s*\(%\)/i.test(String(c||''))));});
+  let crashRatio=null,crashOrg=null,crashSamp=null;
+  for(const sn of _allSheets){const rows=sheetRows(wb,sn,200)||[];for(const r of rows){for(const c of (r||[])){const s=String(c||'');if(/sample/i.test(s)&&/(\bIS\b|acetonitrile|\bACN\b|MeOH|methanol|quench|precipitat)/i.test(s)){const ms=s.match(/(\d+(?:\.\d+)?)\s*[µu]l[^.]{0,30}?(?:unknown|plasma|sample)/i);const mo=s.match(/(\d+(?:\.\d+)?)\s*[µu]l\s*(?:of\s*)?(?:IS|acetonitrile|ACN|MeOH|methanol)/i);if(ms&&mo){crashSamp=parseFloat(ms[1]);crashOrg=parseFloat(mo[1]);crashRatio=crashOrg/crashSamp;break;}}}if(crashRatio!=null)break;}}
+  let rsq=null;for(const sn of _allSheets){const rows=sheetRows(wb,sn,400)||[];for(const r of rows){const i=(r||[]).findIndex(c=>/correlation coefficient|^\s*r[²2]\s*$|^rsq/i.test(String(c||'')));if(i>=0&&N(r[i+1])!==null){rsq=N(r[i+1]);break;}}if(rsq!=null)break;}
   const mwExp=MW!=null?MW+1:null;
   const bioRows=[];
-  bioRows.push({key:'cname',label:'Compound name match (Raw Data peak)',st:peakName?(peakName.toUpperCase().includes(stem.toUpperCase())?'pass':'warn'):'fail',val:peakName||'Peak name not found',note:''});
-  bioRows.push({key:'q1',label:'Q1 m/z ≈ MW+1',st:(q1!=null&&mwExp!=null)?(Math.abs(q1-mwExp)<=1.0?'pass':'warn'):'fail',val:q1!=null?`Q1 ${fmt(q1,2)} vs MW+1 ${mwExp!=null?fmt(mwExp,2):'?'}`:'Q1 not found',note:q3!=null?`Q3 ${fmt(q3,2)}`:''});
-  bioRows.push({key:'grad',label:'LC gradient defined',st:gradientOK?'pass':'fail',val:gradientOK?'Gradient table present in Analytical Method':'Gradient not found',note:''});
-  bioRows.push({key:'crash',label:'≥4 volumes crash (organic : plasma)',st:crashRatio!=null?(crashRatio>=4?'pass':'warn'):'manual',val:crashRatio!=null?`${fmt(crashRatio,1)}× (${mav?mav[1]:'?'} µL ACN : ${mpv?mpv[1]:'?'} µL plasma)`:'Click to confirm crash ratio',note:''});
+  bioRows.push({key:'cname',label:'Compound name match',st:peakName?((stem&&String(peakName).toUpperCase().includes(stem.toUpperCase()))?'pass':'warn'):'fail',val:peakName||'Peak name not found',note:''});
+  bioRows.push({key:'q1',label:'Q1 m/z ≈ MW+1',st:(q1!=null&&mwExp!=null)?(Math.abs(q1-mwExp)<=1.5?'pass':'warn'):'fail',val:q1!=null?`Q1 ${fmt(q1,2)} vs MW+1 ${mwExp!=null?fmt(mwExp,2):'?'}`:'Q1 not found',note:q3!=null?`Q3 ${fmt(q3,2)}`:''});
+  bioRows.push({key:'grad',label:'LC gradient defined',st:gradientOK?'pass':'fail',val:gradientOK?'Gradient table present':'Gradient not found',note:''});
+  bioRows.push({key:'crash',label:'≥4 volumes crash (organic : sample)',st:crashRatio!=null?(crashRatio>=4?'pass':'warn'):'manual',val:crashRatio!=null?`${fmt(crashRatio,1)}× (${crashOrg!=null?fmt(crashOrg,0):'?'} µL : ${crashSamp!=null?fmt(crashSamp,0):'?'} µL)`:'Click to confirm crash ratio',note:''});
   bioRows.push({key:'rsq',label:'Standard curve R² ≥ 0.99',st:rsq!=null?(rsq>=0.99?'pass':(rsq>=0.98?'warn':'fail')):'fail',val:rsq!=null?fmt(rsq,4):'R² not found',note:''});
   sections.push({title:'Bioanalytical',icon:'⚗️',rows:bioRows});
 
-  // ===== FORMULATION =====
+  // ===== FORMULATION (auto; only the visual check is manual) =====
   const formRows=[{key:'info',label:'Compound info',st:'info',val:`MW ${MW!=null?fmt(MW,2):'?'} · FW ${FW!=null?fmt(FW,2):'?'} · Purity ${purity!=null?Math.round(purity*100)+'%':'?'}`,note:''}];
-  for(const r of fRows){
-    const route=String(r[0]||'').trim();
-    if(/^(IV|PO|IM|SC|IP)$/i.test(route)){
-      const nominal=N(r[3]),meanv=N(r[5]),acc=N(r[6]);
-      if(acc!==null)formRows.push({key:`acc_${route}`,label:`${route} dose formulation — Mean vs Nominal (80–120%)`,st:(acc>=80&&acc<=120)?'pass':((acc>=70&&acc<=130)?'warn':'fail'),val:`${fmt(acc,1)}% (nominal ${nominal!=null?fmt(nominal,3):'?'}, mean ${meanv!=null?fmt(meanv,3):'?'} mg/mL)`,note:''});
-    }
-  }
-  formRows.push({key:'purity_m',label:'Purity match (report vs registry)',st:'manual',val:purity!=null?Math.round(purity*100)+'%':'?',note:'Click to confirm purity'});
-  formRows.push({key:'color',label:`Confirm color / appearance match (${appearance||'?'})`,st:'manual',val:'',note:'Click to confirm appearance'});
+  for(const d of doseVal){if(d.acc!=null)formRows.push({key:`acc_${d.route}`,label:`${d.route} dose formulation — Mean vs Nominal (80–120%)`,st:(d.acc>=80&&d.acc<=120)?'pass':((d.acc>=70&&d.acc<=130)?'warn':'fail'),val:`${fmt(d.acc,1)}% (nominal ${d.nominal!=null?fmt(d.nominal,3):'?'}, mean ${d.mean!=null?fmt(d.mean,3):'?'} mg/mL)`,note:''});}
+  formRows.push({key:'purity',label:'Purity (reported)',st:purity!=null?'info':'warn',val:purity!=null?Math.round(purity*100)+'%':'Not found in report',note:''});
+  formRows.push({key:'appear',label:'Appearance / color (reported)',st:appearance?'info':'na',val:appearance||'Not reported in report',note:''});
   formRows.push({key:'visual',label:'Formulation visual check',st:'manual',val:'',note:'Click to confirm formulation visually inspected & acceptable'});
   sections.push({title:'Formulation',icon:'⚗️',rows:formRows});
 
@@ -2089,10 +2096,10 @@ function doRoutinePKPharmaron(wb){
   sections.push({title:'Raw Data',icon:'📈',rows:rdRows});
   try{const isChecks=runISChecks(wb,['raw'],'Routine PK');if(isChecks&&isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});}catch(e){}
 
-  // ===== SUMMARY per group (IV / PO) =====
+  // ===== SUMMARY per group =====
   for(const o of groups){
     const route=String(gv(o,/route/i)||'').trim().toUpperCase();
-    const side=route==='PO'?'PO':'IV';
+    const side=route.includes('PO')?'PO':'IV';
     const sp=String(gv(o,/species/i)||'').trim();
     const rows=[];
     const add=(lbl,re,dp,crit)=>{const raw=gv(o,re);const v=N(raw);let st='info',note='';if(crit&&v!==null){const c=crit(v);st=c.st;note=c.note||'';}const val=(raw===undefined||raw===null||raw==='')?'—':((typeof raw==='number')?fmt(raw,dp):String(raw));rows.push({key:lbl.replace(/\W+/g,'_'),label:lbl,st,val,note});};
@@ -2108,46 +2115,37 @@ function doRoutinePKPharmaron(wb){
     add('Vss_obs (L/kg)',/Vss/i,3);
     add('AUClast/D',/AUClast\/D/i,2);
     add('F (%)',/^F \(|^F$/i,2);
-    const lz=paramVals('No_points_lambda_z',side),rsq=paramVals('Rsq',side),tlast=paramVals('Tlast',side),clast=paramVals('Clast',side);
+    const lz=paramVals('No_points_lambda_z',side),rsqv=paramVals('Rsq',side),tlast=paramVals('Tlast',side),clast=paramVals('Clast',side);
     if(lz.length){const mn=Math.min(...lz);rows.push({key:'lz',label:'No. points lambda-z (≥3 per subject)',st:mn>=3?'pass':'warn',val:lz.join(', '),note:mn<3?'⚠️ <3 points in a subject':''});}
-    if(rsq.length){const mn=Math.min(...rsq);rows.push({key:'rsq',label:'Rsq (≥0.90 per subject)',st:mn>=0.9?'pass':'warn',val:rsq.map(x=>fmt(x,3)).join(', '),note:mn<0.9?'⚠️ Rsq <0.90 in a subject':''});}
+    if(rsqv.length){const mn=Math.min(...rsqv);rows.push({key:'rsq',label:'Rsq (≥0.90 per subject)',st:mn>=0.9?'pass':'warn',val:rsqv.map(x=>fmt(x,3)).join(', '),note:mn<0.9?'⚠️ Rsq <0.90 in a subject':''});}
     if(tlast.length)rows.push({key:'tlast',label:'Tlast (h)',st:'info',val:tlast.map(x=>fmt(x,2)).join(', '),note:''});
     if(clast.length)rows.push({key:'clast',label:'Clast (nmol/L)',st:'info',val:clast.map(x=>fmt(x,2)).join(', '),note:''});
     sections.push({title:`Summary — ${sp||'Compound'} ${route}`,icon:'📊',rows});
   }
   if(!groups.length)sections.push({title:'Summary',icon:'📊',rows:[{key:'no',label:'PK parameters (report Upload tab)',st:'fail',val:'No GEN- rows found in report Upload sheet',note:''}]});
 
-  // ===== ng ↔ nM CONVERSION =====
-  const ngRows=sheetRows(wb,'PK_Results(ng)',60)||[];
-  const nmRows=sheetRows(wb,'PK_Results (nM)',60)||sheetRows(wb,'PK_Results(nM)',60)||[];
+  // ===== ng ↔ nM CONVERSION (side-by-side OR separate sheets) =====
   const convRows=[];
-  if(MW&&ngRows.length&&nmRows.length){
-    const factor=1000/MW;
-    let hdr=ngRows.findIndex(r=>String(r[0]||'').trim()==='(h)');
-    let n=0;const bad=[];
-    if(hdr>=0){
-      let started=false;
-      for(let i=hdr+1;i<ngRows.length;i++){
-        const rg=ngRows[i]||[],rn=nmRows[i]||[];
-        // stop at the first all-empty row after the concentration block
-        // (prevents bleeding into the summary-parameter tables below)
-        if(N(rg[0])===null&&N(rg[10])===null){if(started)break;else continue;}
-        started=true;
-        for(const pair of [[0,[1,2,3]],[10,[11,12,13]]]){
-          if(N(rg[pair[0]])===null)continue;
-          for(const c of pair[1]){
-            const a=N(rg[c]),b=N(rn[c]);
-            if(a===null||b===null||a<=0||b<=0)continue;
-            n++;const exp=a*factor;
-            if(Math.abs(b-exp)/b>0.02)bad.push(`${String.fromCharCode(65+c)}${i+1}: ${fmt(a,2)}ng→${fmt(exp,1)} exp, got ${fmt(b,1)}`);
-          }
-        }
+  if(MW){
+    const factor=1000/MW; let n=0;const bad=[];let src='';
+    outer: for(const sn of _allSheets){const rows=sheetRows(wb,sn,200)||[];
+      for(let h=0;h<rows.length;h++){const cells=(rows[h]||[]).map(c=>String(c||''));
+        const ngCol=cells.findIndex(c=>/\(ng\/ml\)|conc.*ng\/?ml/i.test(c));
+        const nmCol=cells.findIndex(c=>/\(nmol\/l\)|\(nm\)|conc.*nmol\/?l/i.test(c));
+        if(ngCol>=0&&nmCol>ngCol){const off=nmCol-ngCol;let started=false;
+          for(let i=h+1;i<rows.length;i++){const r=rows[i]||[];let any=false;
+            for(let c=ngCol;c<nmCol;c++){const a=numCell(r[c]),b=numCell(r[c+off]);if(a===null||b===null||a<=0||b<=0)continue;any=true;n++;const exp=a*factor;if(Math.abs(b-exp)/b>0.03)bad.push(`${sn} R${i+1}: ${fmt(a,2)}ng→${fmt(exp,1)} exp, got ${fmt(b,1)}`);}
+            if(!any){if(started)break;else continue;}started=true;}
+          if(n>=3){src=sn;break outer;}}
       }
     }
+    if(n===0){const ngRows=sheetRows(wb,'PK_Results(ng)',60)||[];const nmRows=sheetRows(wb,'PK_Results (nM)',60)||sheetRows(wb,'PK_Results(nM)',60)||[];
+      let hdr=ngRows.findIndex(r=>String(r[0]||'').trim()==='(h)');
+      if(hdr>=0){let started=false;for(let i=hdr+1;i<ngRows.length;i++){const rg=ngRows[i]||[],rn=nmRows[i]||[];if(N(rg[0])===null&&N(rg[10])===null){if(started)break;else continue;}started=true;for(const pair of [[0,[1,2,3]],[10,[11,12,13]]]){if(N(rg[pair[0]])===null)continue;for(const c of pair[1]){const a=numCell(rg[c]),b=numCell(rn[c]);if(a===null||b===null||a<=0||b<=0)continue;n++;const exp=a*factor;if(Math.abs(b-exp)/b>0.02)bad.push(`R${i+1}C${c+1}: ${fmt(a,2)}ng→${fmt(exp,1)} exp, got ${fmt(b,1)}`);}}}src='PK_Results';}}
     convRows.push({key:'factor',label:'Conversion factor used (1000 ÷ MW)',st:'info',val:`${fmt(factor,5)} nM per ng/mL  (MW ${fmt(MW,2)} g/mol)`,note:''});
-    convRows.push({key:'conv',label:`PK_Results: nM = ng × 1000/MW  (n=${n} cells, ±2% tol)`,st:n===0?'fail':(bad.length===0?'pass':'fail'),val:n===0?'No comparable concentration cells found':(bad.length===0?`All ${n} cells reconcile`:`${bad.length}/${n} cells mismatch`),note:bad.slice(0,4).join('  ·  ')});
+    convRows.push({key:'conv',label:`nM = ng × 1000/MW  (n=${n} cells${src?', '+src:''})`,st:n===0?'warn':(bad.length===0?'pass':'fail'),val:n===0?'No paired ng/nM concentration cells found':(bad.length===0?`All ${n} cells reconcile`:`${bad.length}/${n} cells mismatch`),note:bad.slice(0,4).join('  ·  ')});
   } else {
-    convRows.push({key:'conv_na',label:'ng ↔ nM conversion',st:'fail',val:MW?'PK_Results (ng/nM) sheets not found':'MW not found in Formulation sheet',note:''});
+    convRows.push({key:'conv_na',label:'ng ↔ nM conversion',st:'fail',val:'MW not found in report',note:''});
   }
   sections.push({title:'ng ↔ nM Conversion Check',icon:'🔬',rows:convRows});
 
@@ -2163,23 +2161,11 @@ function doRoutinePKPharmaron(wb){
 
   // ---- CDD upload rows (mirror report Upload tab; clean id/batch) ----
   const cddCols=TEMPLATES.pk_pharmaron.cols;
-  const uploadRows=groups.map(o=>{
-    const out={};
-    cddCols.forEach(col=>{
-      if(col==='Compound_ID')out[col]=stem;
-      else if(col==='batch_id')out[col]=batchForm||String(gv(o,/batch/i)||'');
-      else if(/^CRO$/i.test(col))out[col]=String(gv(o,/^CRO$/i)||'Pharmaron');
-      else{const k=upHdr.find(h=>h.toLowerCase()===col.toLowerCase());const rawv=k!==undefined?o[k]:undefined;out[col]=(rawv===undefined||rawv===null||rawv==='')?'':rawv;}
-    });
-    return out;
-  });
-
-  // ---- KS upload rows ----
+  const uploadRows=groups.map(o=>{const out={};cddCols.forEach(col=>{if(col==='Compound_ID')out[col]=stem||compoundFull;else if(col==='batch_id')out[col]=batchForm||String(gv(o,/batch/i)||'');else if(/^CRO$/i.test(col))out[col]=String(gv(o,/^CRO$/i)||cro);else{const k=upHdr.find(h=>h.toLowerCase()===col.toLowerCase());const rawv=k!==undefined?o[k]:undefined;out[col]=(rawv===undefined||rawv===null||rawv==='')?'':rawv;}});return out;});
   const speciesRaw=groups[0]?String(gv(groups[0],/species/i)||'').trim():'';
-  const title=`${speciesRaw||'Mouse'} Routine PK IV ${ivDose!=null?fmt(ivDose,0):'?'}mpk and PO at ${poDose!=null?fmt(poDose,0):'?'}mpk`;
+  const title=`${speciesRaw||strainR||'Animal'} Routine PK IV ${ivDoseR!=null?fmt(ivDoseR,0):'?'}mpk and PO at ${poDoseR!=null?fmt(poDoseR,0):'?'}mpk`;
   const ksCols=['Compound_ID','batch_id','Study Title','Species','Raw data','CRO','Comment'];
-  const ksRows=[{'Compound_ID':stem,'batch_id':batchForm,'Study Title':title,'Species':speciesRaw,'Raw data':'','CRO':'Pharmaron','Comment':''}];
-
+  const ksRows=[{'Compound_ID':stem||compoundFull,'batch_id':batchForm,'Study Title':title,'Species':speciesRaw,'Raw data':'','CRO':cro,'Comment':''}];
   return{parsed:{cpds:groups,ksRows,ksCols},uploadRows,sections};
 }
 
