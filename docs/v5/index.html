@@ -2857,10 +2857,15 @@ function doPXR(wb){
     ...matRows.map(m=>({key:`mw_${m.id}`,label:`MW: ${m.id} (workbook: ${m.mw||'?'} g/mol, purity: ${m.purity!=null?Math.round(m.purity*100)+'%':'?'})`,st:'manual',val:'',note:'Click to confirm MW'})),
   ]});
 
+  // PXR runs at 1 AND 10 µM (positive control rifampicin). The sheet phrases
+  // this as "1 and 10 µM", so a literal "1 µM" substring search misses it.
+  // Accept the combined phrasing OR both concentrations stated explicitly,
+  // tolerating the micro sign (µ U+00B5) and Greek mu (μ U+03BC).
+  const _pxrConc=/1\s*(?:and|,|&|\/|-|–|to)\s*10\s*[µμ]M/i.test(sdTxt)||(/(?:^|[^0-9])1\s*[µμ]M/i.test(sdTxt)&&/10\s*[µμ]M/i.test(sdTxt));
   sections.push({title:'Study Design (Study Design Sheet)',icon:'📐',rows:[
     {key:'cells',label:'DPX2 (hPXR-reporter) cells used',st:sdTxt.includes('DPX2')?'pass':'fail',val:sdTxt.includes('DPX2')?'DPX2 cells confirmed in Study Design':'DPX2 cells not found in Study Design',note:''},
-    {key:'concs',label:'1 and 10 μM test concentrations',st:sdTxt.includes('1 µM')||sdTxt.includes('1 μM')?'pass':'fail',val:sdTxt.includes('1 µM')||sdTxt.includes('1 μM')?'1 and 10 μM confirmed in Study Design':'1 μM not found in Study Design text',note:''},
-    {key:'rif_ctrl',label:'Rifampicin positive control used',st:sdTxt.includes('Rifampicin')||sdTxt.includes('rifampicin')?'pass':'fail',val:sdTxt.includes('Rifampicin')?'Rifampicin confirmed in Study Design':'Rifampicin not found in Study Design',note:''},
+    {key:'concs',label:'1 and 10 μM test concentrations',st:_pxrConc?'pass':'fail',val:_pxrConc?'1 and 10 μM confirmed in Study Design':'1 and 10 μM not found in Study Design text',note:''},
+    {key:'rif_ctrl',label:'Rifampicin positive control used',st:/rifampicin/i.test(sdTxt)?'pass':'fail',val:/rifampicin/i.test(sdTxt)?'Rifampicin confirmed in Study Design':'Rifampicin not found in Study Design',note:''},
     {key:'inctime',label:'48-hour incubation',st:sdTxt.includes('48')?'pass':'fail',val:sdTxt.includes('48')?'48h confirmed in Study Design':'48h not found in Study Design',note:''},
     {key:'luciferase',label:'ONE-Glo Luciferase readout',st:sdTxt.includes('ONE-Glo')||sdTxt.includes('One-Glo')||sdTxt.includes('ONE_Glo')||sdTxt.includes('Glo')?'pass':'fail',val:sdTxt.includes('Glo')?'ONE-Glo confirmed in Study Design':'ONE-Glo not found in Study Design',note:''},
     {key:'viability',label:'CellTiter-Fluor cell viability assay',st:sdTxt.includes('CellTiter')||sdTxt.includes('RFU')?'pass':'fail',val:sdTxt.includes('CellTiter')?'CellTiter-Fluor confirmed in Study Design':'CellTiter-Fluor/RFU not found in Study Design',note:''},
