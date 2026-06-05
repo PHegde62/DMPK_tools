@@ -697,6 +697,7 @@ function runISChecks(wb, sheetNameHints, assayLabel){
     const snl=sn.toLowerCase();
     return snl.includes('raw') || sheetNameHints.some(h=>snl.includes(h.toLowerCase()));
   });
+  const _autoRaw=rawSheetName(wb); if(_autoRaw&&!rawSheetNames.includes(_autoRaw))rawSheetNames.push(_autoRaw);
 
   let allRecords=[], foundSheets=[];
   for(const sn of rawSheetNames){
@@ -1196,8 +1197,21 @@ function extractISCV(rows){
 }
 
 // Helper: get IS CV scanning all Raw Data sheets in a workbook
+// CROs sometimes label the raw-data tab by species (Human, Rat, Mouse, Monkey,
+// Cyno, Dog, …) instead of "Raw Data". Resolve it structurally (any sheet that
+// has an "IS Peak Area" column) and fall back to a species-named tab.
+const _SPECIES_RE=/^\s*(human|rat|mouse|mice|monkey|cyno(?:molgus)?|rhesus|dog|beagle|rabbit|mini-?pig|minipig|pig|hamster|guinea[\s-]*pig|nhp)\b/i;
+function _sheetHasIS(wb,sn){if(!wb.Sheets||!wb.Sheets[sn])return false;const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}).slice(0,6);return rows.some(r=>(r||[]).some(c=>/IS\s*Peak\s*Area/i.test(String(c||''))));}
+function rawSheetName(wb){
+  const N=wb.SheetNames;
+  let s=N.find(n=>/raw\s*data/i.test(n)&&_sheetHasIS(wb,n)); if(s)return s;
+  s=N.find(n=>_sheetHasIS(wb,n)); if(s)return s;
+  s=N.find(n=>_SPECIES_RE.test(n)); if(s)return s;
+  return N.find(n=>/raw\s*data|^\s*raw\s*$|bioanalytical/i.test(n))||null;
+}
 function extractISCVFromWB(wb, extraSheets=[]){
-  const sheetNames=[...wb.SheetNames.filter(s=>s.toLowerCase().includes('raw')||s.toLowerCase().includes('data')),...extraSheets];
+  const _auto=rawSheetName(wb);
+  const sheetNames=[...wb.SheetNames.filter(s=>s.toLowerCase().includes('raw')||s.toLowerCase().includes('data')),...(_auto?[_auto]:[]),...extraSheets];
   for(const sn of [...new Set(sheetNames)]){
     const rows=sheetRows(wb,sn,300)||[];
     const cv=extractISCV(rows);
@@ -1250,14 +1264,15 @@ function doMicStab(wb){
   const bioRows=getBioanalytical_CYPS(wb);
   const {cpds,ctrl}=parseSummaryStability(wb);
 
-  const rawRows=sheetRows(wb,'Raw Data',300)||sheetRows(wb,'Data',300)||[];
-  let r2=null,carryover=null,snr=null;
+  const rawRows=sheetRows(wb,rawSheetName(wb)||'Raw Data',300)||sheetRows(wb,'Raw Data',300)||sheetRows(wb,'Data',300)||[];
+  let r2=null,carryover=null,snr=null,snrFlag=null;
   const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
-    if(txt.match(/R2|R²/i)){const i=r.findIndex(c=>String(c||'').match(/R2|R²/i));if(i>=0&&N(r[i+1])!==null)r2=N(r[i+1]);}
-    if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
-    if(txt.toLowerCase().includes('signal')||txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)snr=Math.min(...v.filter(x=>x>0));}
+    const cells=(r||[]).map(c=>String(c||''));
+    const txt=cells.join(' ');
+    if(/\br[²2]\b|correlation\s*coefficient/i.test(txt)){const i=cells.findIndex(c=>/^\s*r[²2]\s*$|correlation\s*coefficient/i.test(c));if(i>=0&&r2===null&&N(r[i+1])!==null)r2=N(r[i+1]);}
+    if(/carry-?over/i.test(txt)){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
+    if(/\bS\/N\b|signal|noise/i.test(txt)){const i=cells.findIndex(c=>/\bS\/N\b|signal|noise/i.test(c));const nx=(i>=0?cells[i+1]:'').trim();if(/^(yes|pass)$/i.test(nx)){if(snrFlag===null)snrFlag='Yes';}else if(/^(no|fail)$/i.test(nx)){snrFlag='No';}else{const v=r.map(c=>N(c)).filter(x=>x!==null&&x>0);if(v.length&&snr===null)snr=Math.min(...v);}}
   }
   // Controls acceptance ranges — from program params (falls back to PC-006 defaults)
   const _msp=progP('mic_stab');
@@ -1294,8 +1309,8 @@ function doMicStab(wb){
   sections.push({title:'Bioanalytical',icon:'⚗️',rows:bRows});
   sections.push({title:'Raw Data Quality',icon:'📊',rows:[
     {key:'iscv',label:'IS Peak Area CV ≤ 25%',st:isCv!==null?(isCv<=25?'pass':'fail'):'fail',val:isCv!==null?fmt(isCv)+'%':'IS CV not found in Raw Data',note:''},
-    ...(_showCarryover?[{key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'fail',val:carryover!==null?fmt(carryover)+'%':'Carryover not found in Raw Data',note:''}]:[]),
-    {key:'snr',label:'Signal/Noise ≥ 3',st:snr!==null?(snr>=3?'pass':'fail'):'fail',val:snr!==null?fmt(snr,1):'SNR not found in Raw Data',note:''},
+    ...(_showCarryover?[{key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'na',val:carryover!==null?fmt(carryover)+'%':'Carryover not reported in this report',note:''}]:[]),
+    {key:'snr',label:'Signal/Noise ≥ 3',st:snr!==null?(snr>=3?'pass':'fail'):(snrFlag!==null?(/yes/i.test(snrFlag)?'pass':'fail'):'na'),val:snr!==null?fmt(snr,1):(snrFlag!==null?('S/N acceptance: '+snrFlag):'SNR not reported'),note:''},
     {key:'r2',label:'Controls: R² ≥ 0.95',st:r2!==null?(r2>=0.95?'pass':'fail'):'fail',val:r2!==null?fmt(r2,3):'R² not found in Raw Data',note:''},
   ]});
   const ctrlRows=[];
@@ -1335,14 +1350,15 @@ function doHepStab(wb){
   const bioRows=getBioanalytical_CYPS(wb);
   const {cpds,ctrl}=parseSummaryStability(wb);
 
-  const rawRows=sheetRows(wb,'Raw Data',300)||[];
-  let r2=null,carryover=null,snr=null;
+  const rawRows=sheetRows(wb,rawSheetName(wb)||'Raw Data',300)||sheetRows(wb,'Raw Data',300)||[];
+  let r2=null,carryover=null,snr=null,snrFlag=null;
   const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
   for(const r of rawRows){
-    const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
-    if(txt.match(/R2|R²/i)){const i=r.findIndex(c=>String(c||'').match(/R2|R²/i));if(i>=0&&N(r[i+1])!==null)r2=N(r[i+1]);}
-    if(txt.toLowerCase().includes('carryover')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
-    if(txt.toLowerCase().includes('noise')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
+    const cells=(r||[]).map(c=>String(c||''));
+    const txt=cells.join(' ');
+    if(/\br[²2]\b|correlation\s*coefficient/i.test(txt)){const i=cells.findIndex(c=>/^\s*r[²2]\s*$|correlation\s*coefficient/i.test(c));if(i>=0&&r2===null&&N(r[i+1])!==null)r2=N(r[i+1]);}
+    if(/carry-?over/i.test(txt)){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryover=Math.max(...v);}
+    if(/\bS\/N\b|signal|noise/i.test(txt)){const i=cells.findIndex(c=>/\bS\/N\b|signal|noise/i.test(c));const nx=(i>=0?cells[i+1]:'').trim();if(/^(yes|pass)$/i.test(nx)){if(snrFlag===null)snrFlag='Yes';}else if(/^(no|fail)$/i.test(nx)){snrFlag='No';}else{const v=r.map(c=>N(c)).filter(x=>x!==null&&x>0);if(v.length&&snr===null)snr=Math.min(...v);}}
   }
   const _hsp=progP('hep_stab');
   const CTRL_RANGES=_hsp.controls||{
@@ -1376,8 +1392,8 @@ function doHepStab(wb){
   sections.push({title:'Bioanalytical',icon:'⚗️',rows:bRows});
   sections.push({title:'Raw Data Quality',icon:'📊',rows:[
     {key:'iscv',label:'IS Peak Area CV ≤ 25%',st:isCv!==null?(isCv<=25?'pass':'fail'):'fail',val:isCv!==null?fmt(isCv)+'%':'IS CV not found in Raw Data',note:''},
-    {key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'fail',val:carryover!==null?fmt(carryover)+'%':'Carryover not found in Raw Data',note:''},
-    {key:'snr',label:'Signal/Noise ≥ 3',st:snr!==null?(snr>=3?'pass':'fail'):'fail',val:snr!==null?fmt(snr,1):'SNR not found in Raw Data',note:''},
+    {key:'carry',label:'% Carryover at 60 min ≤ 20%',st:carryover!==null?(carryover<=20?'pass':'fail'):'na',val:carryover!==null?fmt(carryover)+'%':'Carryover not reported in this report',note:''},
+    {key:'snr',label:'Signal/Noise ≥ 3',st:snr!==null?(snr>=3?'pass':'fail'):(snrFlag!==null?(/yes/i.test(snrFlag)?'pass':'fail'):'na'),val:snr!==null?fmt(snr,1):(snrFlag!==null?('S/N acceptance: '+snrFlag):'SNR not reported'),note:''},
     {key:'r2',label:'Controls R² ≥ 0.95',st:r2!==null?(r2>=0.95?'pass':'fail'):'fail',val:r2!==null?fmt(r2,3):'R² not found in Raw Data',note:''},
   ]});
   const ctrlRows=[];
