@@ -744,14 +744,25 @@ function runISChecks(wb, sheetNameHints, assayLabel){
   // We do what we can: check summary sheet for a "raw data" companion
   const summSheets=wb.SheetNames.filter(sn=>sn.toLowerCase().includes('summ'));
   if(summSheets.length>0&&foundSheets.length>0){
-    // Extract compound IDs from summary
+    // Normalise any GEN id to its bare stem (drops footnote letters such as
+    // the "a" in "GEN-0072267a") so the two sides compare on equal footing.
+    const stem=s=>{const m=String(s||'').match(/GEN-\d{3,}/i);return m?m[0].toUpperCase():null;};
+    // Extract compound IDs from summary (scan all cells, not just col 0)
     const summCpds=new Set();
     for(const sn of summSheets){
       const sr=sheetRows(wb,sn,300)||[];
-      for(const r of sr){const cid=String(r[0]||'').trim();if(cid.match(/GEN-\d/))summCpds.add(cid);}
+      for(const r of sr){for(const c of r){const g=stem(c);if(g)summCpds.add(g);}}
     }
-    // Extract compound IDs that appear in raw data sample names
-    const rawCpds=new Set(allRecords.map(r=>r.sample).filter(s=>s.match(/GEN-\d/)));
+    // Compound IDs in raw data - Pharmaron keeps the ID in its own column,
+    // NOT in the sample-name string, so scan all cells of the raw sheets
+    // (the old code only checked sample names and so always reported the
+    // compound as "summary only").
+    const rawCpds=new Set();
+    allRecords.forEach(r=>{const g=stem(r.sample);if(g)rawCpds.add(g);});
+    for(const sn of foundSheets){
+      const rr=sheetRows(wb,sn,2000)||[];
+      for(const r of rr){for(const c of r){const g=stem(c);if(g)rawCpds.add(g);}}
+    }
     const onlyInRaw=[...rawCpds].filter(id=>!summCpds.has(id));
     const onlyInSumm=[...summCpds].filter(id=>!rawCpds.has(id));
 
@@ -1104,6 +1115,17 @@ function extractISCV(rows){
   if(!rows||!rows.length)return null;
   for(const r of rows){
     const fullTxt=r.map(c=>String(c||'')).join(' ');
+    // Priority 0: a dedicated "IS CV" / "IS %CV" / "IS Peak Area %CV" label
+    // cell whose value sits in the ADJACENT cell (not necessarily the first
+    // number in the row). Pharmaron permeability sheets write the label in
+    // the Direction column with the numeric value beside it, e.g.
+    //   ... | 'IS CV' | 1.69 | ...   ->  grabbing nums[0] would wrongly pick
+    // up the Area-Ratio value, so we read the neighbour of the label.
+    const isCvIdx=r.findIndex(c=>/^\s*IS\s*(peak\s*area\s*)?%?\s*CV\s*%?\s*$/i.test(String(c||'')));
+    if(isCvIdx>=0){
+      let v=N(r[isCvIdx+1]); if(v===null)v=N(r[isCvIdx-1]);
+      if(v!==null&&v>=0&&v<=100)return v;
+    }
     // Priority 1: explicit IS %CV label anywhere in row
     if(fullTxt.match(/IS\s*%\s*CV|IS.*peak.*%CV/i)){
       const nums=r.map(c=>N(c)).filter(v=>v!==null&&v>=0&&v<=100);
@@ -1505,8 +1527,15 @@ function doPermeability(wb){
   // Summary: Compound|Batch|PappAB|PappBA|ER|Rec%AB|Rec%BA|Condition|CRO
   const cpds=[],ctrl=[];
   for(const r of summRows){
-    const cid=String(r[0]||'').trim();
+    const rowTxt=r.map(c=>String(c||'')).join(' ');
+    // Table 1 (permeability) only - stop before Table 2 (monolayer
+    // integrity) so its TEER/LY rows are NOT mis-read as compound Papp data.
+    if(/table\s*2|monolayer\s*integrit/i.test(rowTxt))break;
+    let cid=String(r[0]||'').trim();
     if(!cid.match(/GEN-|Metoprolol|Digoxin/i))continue;
+    // Strip trailing footnote marker (e.g. "GEN-0072267a" -> "GEN-0072267")
+    // so the compound card title and the raw-data reconciliation line up.
+    const gm=cid.match(/GEN-\d{3,}/i);if(gm)cid=gm[0];
     const o={id:cid,batch:String(r[1]||'').trim(),pappAB:N(r[2]),pappBA:N(r[3]),er:N(r[4]),recAB:N(r[5]),recBA:N(r[6]),condition:String(r[7]||'with 1% BSA'),cro:String(r[8]||'Pharmaron')};
     if(cid.match(/Metoprolol|Digoxin/i))ctrl.push(o);
     else cpds.push(o);
@@ -1514,23 +1543,50 @@ function doPermeability(wb){
   const rawRows=sheetRows(wb,'Raw Data',300)||[];
   let carryAB=null,carryBA=null,snr=null,teerAB=null,teerBA=null,lyAB=null,lyBA=null;
   const isCv=extractISCV(rawRows)??extractISCVFromWB(wb);
+  // Carryover / Signal-to-Noise from Raw Data (LY/TEER handled separately below).
   for(const r of rawRows){
     const txt=r.slice(0,6).map(c=>String(c||'')).join(' ');
-    if(txt.toLowerCase().includes('teer')&&txt.toLowerCase().includes('a-b')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)teerAB=Math.min(...v);}
-    if(txt.toLowerCase().includes('teer')&&txt.toLowerCase().includes('b-a')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)teerBA=Math.min(...v);}
-    if(txt.toLowerCase().includes('lucifer')||txt.toLowerCase().includes('ly')){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>=0&&v<10);if(v.length){lyAB=v[0]||lyAB;lyBA=v[1]||lyBA;}}
     if(txt.toLowerCase().includes('carryover')&&txt.toLowerCase().includes('a-b')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryAB=Math.max(...v);}
     if(txt.toLowerCase().includes('carryover')&&txt.toLowerCase().includes('b-a')){const v=r.map(c=>N(c)).filter(v=>v!==null);if(v.length)carryBA=Math.max(...v);}
     if(txt.match(/\bSNR\b|noise/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>0);if(v.length)snr=Math.min(...v);}
   }
-  // Also check Summary for TEER/LY (some formats put them there)
-  for(const r of summRows){
-    const txt=r.slice(0,5).join(' ');
-    if(txt.match(/TEER/i)&&txt.match(/A.B/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>10);if(v.length)teerAB=teerAB||Math.min(...v);}
-    if(txt.match(/TEER/i)&&txt.match(/B.A/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v>10);if(v.length)teerBA=teerBA||Math.min(...v);}
-    if(txt.match(/LY|Lucifer/i)&&txt.match(/A.B/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v<10);if(v.length)lyAB=lyAB||v[0];}
-    if(txt.match(/LY|Lucifer/i)&&txt.match(/B.A/i)){const v=r.map(c=>N(c)).filter(v=>v!==null&&v<10);if(v.length)lyBA=lyBA||v[0];}
-  }
+  // -- Monolayer integrity (TEER + Lucifer-Yellow leakage) --
+  // Pharmaron reports these in a column-structured table ("Table 2") in the
+  // Summary sheet. Direction headers may use an arrow (A->B) OR a plain
+  // hyphen (A-B / B-A), so the separator is normalised before matching.
+  // We locate the header row, map each metric to its column, then read every
+  // control + test-compound row, reporting the worst case: lowest TEER
+  // (weakest monolayer) and highest LY leakage. Falls back to Raw Data.
+  const _dirAB=h=>/a\s*[-–—→>]+\s*b/i.test(h)||/\ba\s*to\s*b\b/i.test(h);
+  const _dirBA=h=>/b\s*[-–—→>]+\s*a/i.test(h)||/\bb\s*to\s*a\b/i.test(h);
+  const scanMono=rows=>{
+    let cAB=-1,cBA=-1,lAB=-1,lBA=-1,hdr=-1;
+    for(let i=0;i<rows.length;i++){
+      const cells=rows[i].map(c=>String(c||''));
+      if(!cells.some(c=>/teer/i.test(c)))continue;
+      for(let j=0;j<cells.length;j++){
+        const h=cells[j];
+        if(/teer/i.test(h)&&_dirAB(h))cAB=j;
+        else if(/teer/i.test(h)&&_dirBA(h))cBA=j;
+        else if(/(ly|lucifer|leakage)/i.test(h)&&_dirAB(h))lAB=j;
+        else if(/(ly|lucifer|leakage)/i.test(h)&&_dirBA(h))lBA=j;
+      }
+      hdr=i;break;
+    }
+    if(hdr<0)return;
+    for(let i=hdr+1;i<rows.length;i++){
+      const row=rows[i];const cid=String(row[0]||'').trim();
+      if(!cid.match(/GEN-|Metoprolol|Digoxin/i))continue;
+      const tAB=cAB>=0?N(row[cAB]):null, tBA=cBA>=0?N(row[cBA]):null;
+      const yAB=lAB>=0?N(row[lAB]):null, yBA=lBA>=0?N(row[lBA]):null;
+      if(tAB!==null)teerAB=teerAB===null?tAB:Math.min(teerAB,tAB);
+      if(tBA!==null)teerBA=teerBA===null?tBA:Math.min(teerBA,tBA);
+      if(yAB!==null)lyAB=lyAB===null?yAB:Math.max(lyAB,yAB);
+      if(yBA!==null)lyBA=lyBA===null?yBA:Math.max(lyBA,yBA);
+    }
+  };
+  scanMono(summRows);
+  if(teerAB===null&&teerBA===null&&lyAB===null&&lyBA===null)scanMono(rawRows);
 
   const sections=[];
   sections.push({title:'Administrative',icon:'📋',rows:[
