@@ -562,6 +562,17 @@ function sheetRows(wb,name,max=300){
 }
 function N(v){if(v===''||v===null||v===undefined)return null;const n=parseFloat(String(v).replace(/[^0-9.\-eE]/g,''));return isNaN(n)?null:n;}
 function fmt(v,dp=2){return v!==null&&v!==undefined?Number(v).toFixed(dp):'N/A';}
+// Qualifier-aware formatter for the Upload Sheet. N() strips the leading
+// < > <= >= (or unicode) qualifier on values reported at a detection/quant
+// limit (e.g. "<0.02", ">16.51"); this preserves it. Returns '' for blank,
+// the raw text if non-numeric, and behaves exactly like fmt() otherwise.
+function qfmt(raw,dp=2){
+  const s=String(raw==null?'':raw).trim();
+  const m=s.match(/^([<>]=?|[≤≥])\s*/);
+  const n=N(s);
+  if(n===null)return (m&&s)?s:'';
+  return (m?m[1].replace('<=','≤').replace('>=','≥'):'')+fmt(n,dp);
+}
 function inR(v,lo,hi){return v!==null&&v>=lo&&v<=hi;}
 function autoSt(v,lo,hi,wlo,whi){
   if(v===null)return'na';
@@ -1182,7 +1193,7 @@ function parseSummaryStability(wb){
     const cid=String(r[0]||'').trim();
     if(!cid.match(/GEN-|Verapamil|Raloxifene/i)||N(r[3])===null)continue;
     const obj={id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'').trim(),
-      t12:N(r[3]),clint:N(r[4]),scaleup:N(r[5]),clh:N(r[6]),er:N(r[7]),rem:N(r[8]),
+      t12:N(r[3]),clint:N(r[4]),scaleup:N(r[5]),clh:N(r[6]),er:N(r[7]),rem:N(r[8]),t12r:r[3],clintr:r[4],scaleupr:r[5],clhr:r[6],err:r[7],remr:r[8],
       cofactor:String(r[9]||'').trim(),cro:String(r[10]||r[9]||'Pharmaron').trim()};
     if(cid.match(/Verapamil|Raloxifene/i))ctrl.push(obj);
     else cpds.push(obj);
@@ -1271,7 +1282,7 @@ function doMicStab(wb){
   sections.push({title:'Compound Results',icon:'🔬',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw','data'],'Mic Stab');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':c.t12!==null?fmt(c.t12):'','in vitro CLint (μL/min/mg)':c.clint!==null?fmt(c.clint):'','Scale-up CLint (mL/min/Kg)':c.scaleup!==null?fmt(c.scaleup):'','Predicted Hepatic CLH (mL/min/kg)':c.clh!==null?fmt(c.clh):'','Hepatic Extraction Ratio (ER)':c.er!==null?fmt(c.er,3):'','Remaining Percentage (%)  No cofactor':c.rem!==null?fmt(c.rem):'','Cofactor':c.cofactor||'NADPH+UDPGA','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':qfmt(c.t12r),'in vitro CLint (μL/min/mg)':qfmt(c.clintr),'Scale-up CLint (mL/min/Kg)':qfmt(c.scaleupr),'Predicted Hepatic CLH (mL/min/kg)':qfmt(c.clhr),'Hepatic Extraction Ratio (ER)':qfmt(c.err,3),'Remaining Percentage (%)  No cofactor':qfmt(c.remr),'Cofactor':c.cofactor||'NADPH+UDPGA','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1353,7 +1364,7 @@ function doHepStab(wb){
   sections.push({title:'Compound Results',icon:'🫁',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw','data'],'Hep Stab');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':c.t12!==null?fmt(c.t12):'','in vitro CLint (μL/min/106 cells)':c.clint!==null?fmt(c.clint):'','Scale-up CLint (mL/min/Kg)':c.scaleup!==null?fmt(c.scaleup):'','Predicted Hepatic CLH (mL/min/kg)':c.clh!==null?fmt(c.clh):'','Hepatic Extraction Ratio (ER)':c.er!==null?fmt(c.er,3):'','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'in vitro t1/2 (min)':qfmt(c.t12r),'in vitro CLint (μL/min/106 cells)':qfmt(c.clintr),'Scale-up CLint (mL/min/Kg)':qfmt(c.scaleupr),'Predicted Hepatic CLH (mL/min/kg)':qfmt(c.clhr),'Hepatic Extraction Ratio (ER)':qfmt(c.err,3),'CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1457,7 +1468,7 @@ function doLogD(wb){
   for(const r of summRows){
     const cid=String(r[0]||'').trim();
     if(!cid.match(/GEN-|Nicardipine/i))continue;
-    const o={id:cid,batch:String(r[1]||'').trim(),r1:N(r[2]),r2:N(r[3]),mean:N(r[4]),cv:N(r[5]),comment:String(r[r.length-1]||'')};
+    const o={id:cid,batch:String(r[1]||'').trim(),r1:N(r[2]),r2:N(r[3]),mean:N(r[4]),cv:N(r[5]),meanr:r[4],comment:String(r[r.length-1]||'')};
     if(cid.match(/Nicardipine/i))ctrl.push(o);
     else cpds.push(o);
   }
@@ -1509,7 +1520,7 @@ function doLogD(wb){
   }
   if(!cpdRows.length)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results',icon:'📐',rows:cpdRows});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'LogD':c.mean!==null?fmt(c.mean,2):'','CRO':'Pharmaron','Comment':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'LogD':qfmt(c.meanr,2),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1536,7 +1547,7 @@ function doPermeability(wb){
     // Strip trailing footnote marker (e.g. "GEN-0072267a" -> "GEN-0072267")
     // so the compound card title and the raw-data reconciliation line up.
     const gm=cid.match(/GEN-\d{3,}/i);if(gm)cid=gm[0];
-    const o={id:cid,batch:String(r[1]||'').trim(),pappAB:N(r[2]),pappBA:N(r[3]),er:N(r[4]),recAB:N(r[5]),recBA:N(r[6]),condition:String(r[7]||'with 1% BSA'),cro:String(r[8]||'Pharmaron')};
+    const o={id:cid,batch:String(r[1]||'').trim(),pappAB:N(r[2]),pappBA:N(r[3]),er:N(r[4]),recAB:N(r[5]),recBA:N(r[6]),pappABr:r[2],pappBAr:r[3],err:r[4],recABr:r[5],recBAr:r[6],condition:String(r[7]||'with 1% BSA'),cro:String(r[8]||'Pharmaron')};
     if(cid.match(/Metoprolol|Digoxin/i))ctrl.push(o);
     else cpds.push(o);
   }
@@ -1655,7 +1666,7 @@ function doPermeability(wb){
   if(!cpds.length)sections.push({title:'Compound Results',icon:'🚪',rows:[{key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
   const isChecks=runISChecks(wb,['raw','data'],'Permeability');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Papp (A-B) (10-6, cm/s)':c.pappAB!==null?fmt(c.pappAB,2):'','Papp (B-A) (10-6, cm/s)':c.pappBA!==null?fmt(c.pappBA,2):'','Efflux Ratio':c.er!==null?fmt(c.er,2):'','Recovery (%) A-B':c.recAB!==null?fmt(c.recAB):'','Recovery (%) B-A':c.recBA!==null?fmt(c.recBA):'','Condition':c.condition||'with 1% BSA','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Papp (A-B) (10-6, cm/s)':qfmt(c.pappABr,2),'Papp (B-A) (10-6, cm/s)':qfmt(c.pappBAr,2),'Efflux Ratio':qfmt(c.err,2),'Recovery (%) A-B':qfmt(c.recABr),'Recovery (%) B-A':qfmt(c.recBAr),'Condition':c.condition||'with 1% BSA','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -1679,7 +1690,7 @@ function doPPB(wb){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Ketoconazole|Warfarin/i))&&N(r[3])!==null&&N(r[4])!==null){
       allRows.push({id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'').trim(),
-        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),
+        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),pBoundR:r[3],pUnboundR:r[4],pRecR:r[5],remR:r[6],
         condition:String(r[7]||'undiluted+6h'),cro:String(r[8]||'Pharmaron')});
     }
   }
@@ -1734,7 +1745,7 @@ function doPPB(wb){
   sections.push({title:'Compound Results',icon:'🧲',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw'],'PPB');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':qfmt(c.pBoundR),'% Unbound':qfmt(c.pUnboundR),'% Recovery':qfmt(c.pRecR),'% Remaining':qfmt(c.remR),'Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -1757,7 +1768,7 @@ function doHepBinding(wb){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Ketoconazole/i))&&N(r[3])!==null&&N(r[4])!==null){
       allRows.push({id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'Human').trim(),
-        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),
+        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),pBoundR:r[3],pUnboundR:r[4],pRecR:r[5],remR:r[6],
         condition:String(r[7]||'undiluted+6h'),cro:String(r[8]||'Pharmaron')});
     }
   }
@@ -1801,7 +1812,7 @@ function doHepBinding(wb){
   sections.push({title:'Compound Results',icon:'🟤',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw'],'Hep Binding');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':qfmt(c.pBoundR),'% Unbound':qfmt(c.pUnboundR),'% Recovery':qfmt(c.pRecR),'% Remaining':qfmt(c.remR),'Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -1823,7 +1834,7 @@ function doMediaBinding(wb){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Ketoconazole|Warfarin/i))&&N(r[3])!==null&&N(r[4])!==null){
       allRows.push({id:cid,batch:String(r[1]||'').trim(),buffer:String(r[2]||'RPMI+10%FBS').trim(),
-        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),
+        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),rem:N(r[6]),pBoundR:r[3],pUnboundR:r[4],pRecR:r[5],remR:r[6],
         condition:String(r[7]||'undiluted+6h'),cro:String(r[8]||'Pharmaron')});
     }
   }
@@ -1867,7 +1878,7 @@ function doMediaBinding(wb){
   sections.push({title:'Compound Results',icon:'🧫',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw'],'Media Binding');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Buffer':c.buffer||'RPMI+10%FBS','% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':c.pRec!==null?fmt(c.pRec):'','% Remaining at 6 hr':c.rem!==null?fmt(c.rem):'','Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Buffer':c.buffer||'RPMI+10%FBS','% Bound':qfmt(c.pBoundR),'% Unbound':qfmt(c.pUnboundR),'% Recovery':qfmt(c.pRecR),'% Remaining at 6 hr':qfmt(c.remR),'Condition':c.condition||'undiluted+6h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -1889,7 +1900,7 @@ function doPK(wb,cro){
     if(!cid.match(/GEN-/))continue;
     cpds.push({id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'').trim(),
       route:String(r[3]||'').trim(),dose:N(r[4]),vehicle:String(r[5]||'').trim(),
-      cl:N(r[6]),t12:N(r[7]),c0:N(r[8]),auclast:N(r[9]),aucinf:N(r[10]),aucextrap:N(r[11]),mrt:N(r[12]),vss:N(r[13])});
+      cl:N(r[6]),t12:N(r[7]),c0:N(r[8]),auclast:N(r[9]),aucinf:N(r[10]),aucextrap:N(r[11]),mrt:N(r[12]),vss:N(r[13]),doser:r[4],clr:r[6],t12r:r[7],c0r:r[8],auclastr:r[9],aucinfr:r[10],aucextrapr:r[11],mrtr:r[12]});
   }
   // Bioanalytical IS CV from raw data
   const isCV=extractISCVFromWB(wb,['Bioanalytical']);
@@ -1941,7 +1952,7 @@ function doPK(wb,cro){
   const isChecks=runISChecks(wb,['raw','bioanalytical'],`PK (${cro})`);
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
   const cols=TEMPLATES[cro==='WuXi'?'pk_wuxi':'pk_pharmaron'].cols;
-  const uploadRows=cpds.map(c=>{const o={};cols.forEach(col=>{const map={'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'Route':c.route,'Dose (mg/kg)':c.dose!==null?fmt(c.dose):'','Vehicle':c.vehicle,'Cl_obs (mL/min/kg)':c.cl!==null?fmt(c.cl,2):'','T1/2 (h)':c.t12!==null?fmt(c.t12,2):'','C0 (nmol/l)':c.c0!==null?fmt(c.c0,1):'','AUClast (h*nmol/l)':c.auclast!==null?fmt(c.auclast,1):'','AUCInf (h*nmol/l)':c.aucinf!==null?fmt(c.aucinf,1):'','AUC_%Extrap_obs (%)':c.aucextrap!==null?fmt(c.aucextrap):'','MRTInf_obs (h)':c.mrt!==null?fmt(c.mrt,2):''};o[col]=map[col]||'';});return o;});
+  const uploadRows=cpds.map(c=>{const o={};cols.forEach(col=>{const map={'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'Route':c.route,'Dose (mg/kg)':qfmt(c.doser),'Vehicle':c.vehicle,'Cl_obs (mL/min/kg)':qfmt(c.clr,2),'T1/2 (h)':qfmt(c.t12r,2),'C0 (nmol/l)':qfmt(c.c0r,1),'AUClast (h*nmol/l)':qfmt(c.auclastr,1),'AUCInf (h*nmol/l)':qfmt(c.aucinfr,1),'AUC_%Extrap_obs (%)':qfmt(c.aucextrapr),'MRTInf_obs (h)':qfmt(c.mrtr,2)};o[col]=map[col]||'';});return o;});
   return{parsed:{cpds},uploadRows,sections};
 }
 
@@ -2044,7 +2055,7 @@ function doPPBUC(wb){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Warfarin/i))&&N(r[3])!==null&&N(r[4])!==null){
       allRows.push({id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'').trim(),
-        pBound:N(r[3]),pUnbound:N(r[4]),stab05:N(r[5]),stab35:N(r[6]),
+        pBound:N(r[3]),pUnbound:N(r[4]),stab05:N(r[5]),stab35:N(r[6]),pBoundR:r[3],pUnboundR:r[4],stab05R:r[5],stab35R:r[6],
         condition:String(r[7]||'undiluted+3h'),cro:String(r[8]||'Pharmaron')});
     }
   }
@@ -2121,7 +2132,7 @@ function doPPBUC(wb){
 
   const isChecks=runISChecks(wb,['raw'],'PPB UC');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Remaining at 0.5 hr':fmt(c.stab05),'% Remaining at 3.5 hr':fmt(c.stab35),'Condition':c.condition||'undiluted+3h','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':qfmt(c.pBoundR),'% Unbound':qfmt(c.pUnboundR),'% Remaining at 0.5 hr':qfmt(c.stab05R),'% Remaining at 3.5 hr':qfmt(c.stab35R),'Condition':c.condition||'undiluted+3h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -2142,7 +2153,7 @@ function doMicBinding(wb){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Chlorpromazine/i))&&N(r[3])!==null&&N(r[4])!==null){
       allRows.push({id:cid,batch:String(r[1]||'').trim(),species:String(r[2]||'Human').trim(),
-        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),stab5h:N(r[6]),
+        pBound:N(r[3]),pUnbound:N(r[4]),pRec:N(r[5]),stab5h:N(r[6]),pBoundR:r[3],pUnboundR:r[4],pRecR:r[5],stab5hR:r[6],
         condition:String(r[7]||'5h'),cro:String(r[8]||'Pharmaron')});
     }
   }
@@ -2206,7 +2217,7 @@ function doMicBinding(wb){
   sections.push({title:'Compound Results (Summary Sheet)',icon:'⚪',rows:cpdRows});
   const isChecks=runISChecks(wb,['raw'],'Mic Binding');
   if(isChecks.length)sections.push({title:'IS Data Integrity (Raw Data)',icon:'🔍',rows:isChecks});
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':fmt(c.pBound),'% Unbound':fmt(c.pUnbound),'% Recovery':fmt(c.pRec),'% Remaining':fmt(c.stab5h),'Condition':c.condition||'undiluted+5h','CRO':c.cro||'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'% Bound':qfmt(c.pBoundR),'% Unbound':qfmt(c.pUnboundR),'% Recovery':qfmt(c.pRecR),'% Remaining':qfmt(c.stab5hR),'Condition':c.condition||'undiluted+5h','CRO':c.cro||'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -2229,7 +2240,7 @@ function doBloodPart(wb){
     if((cid.match(/GEN-/)||cid.match(/Chloroquine/i))&&sp.match(/Human|Rat|Mouse|Monkey|Dog/i)&&N(r[3])!==null){
       const rep1=N(r[3]),rep2=N(r[4]),mean=N(r[5]);
       const kbp=mean!==null?mean:(rep1!==null&&rep2!==null?(rep1+rep2)/2:rep1);
-      allRows.push({id:cid,batch:String(r[1]||'').trim(),species:sp,rep1,rep2,kbp});
+      allRows.push({id:cid,batch:String(r[1]||'').trim(),species:sp,rep1,rep2,kbp,kbpr:r[5]});
     }
   }
   const controls=allRows.filter(r=>r.id.match(/Chloroquine/i));
@@ -2289,7 +2300,7 @@ function doBloodPart(wb){
   if(cpdRows.length===0)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results (Summary Sheet)',icon:'🩺',rows:cpdRows});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'Blood to plasma ratio (Kb/p)':fmt(c.kbp,4),'CRO':'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':c.species,'Blood to plasma ratio (Kb/p)':qfmt(c.kbpr,4),'CRO':'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -2309,7 +2320,7 @@ function doCYPScreen(wb){
   for(const r of summRows){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Ketoconazole|\*Positive/i))&&N(r[2])!==null){
-      const o={id:cid.replace(/^\*/,'').trim(),batch:String(r[1]||'').trim(),'CYP3A-M_Inh':N(r[2]),'CYP3A-T_Inh':N(r[3])};
+      const o={id:cid.replace(/^\*/,'').trim(),batch:String(r[1]||'').trim(),'CYP3A-M_Inh':N(r[2]),'CYP3A-T_Inh':N(r[3]),mInhR:r[2],tInhR:r[3]};
       if(cid.match(/Ketoconazole|\*Positive|Positive control/i))controls.push(o);
       else cpds.push(o);
     }
@@ -2383,8 +2394,8 @@ function doCYPScreen(wb){
 
   const uploadRows=cpds.flatMap(c=>{
     const rows=[];
-    if(c['CYP3A-M_Inh']!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-M','% Inhibition':fmt(c['CYP3A-M_Inh']),'Condition':'1 μM','CRO':'Pharmaron'});
-    if(c['CYP3A-T_Inh']!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-T','% Inhibition':fmt(c['CYP3A-T_Inh']),'Condition':'1 μM','CRO':'Pharmaron'});
+    if(c['CYP3A-M_Inh']!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-M','% Inhibition':qfmt(c.mInhR),'Condition':'1 μM','CRO':'Pharmaron'});
+    if(c['CYP3A-T_Inh']!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-T','% Inhibition':qfmt(c.tInhR),'Condition':'1 μM','CRO':'Pharmaron'});
     return rows;
   });
   return{parsed:{cpds,controls},uploadRows,sections};
@@ -2408,7 +2419,7 @@ function doCYPIC50(wb){
     const cid=String(r[0]||'').trim();
     if(cid.match(/Mifepristone/i)&&N(r[2])!==null){mifRows.push(r);}
     else if(cid.match(/GEN-/)&&N(r[2])!==null){
-      cpds.push({id:cid,batch:String(r[1]||'').trim(),m_r1:N(r[2]),m_r2:N(r[3]),m_mean:N(r[4]),t_r1:N(r[5]),t_r2:N(r[6]),t_mean:N(r[7])});
+      cpds.push({id:cid,batch:String(r[1]||'').trim(),m_r1:N(r[2]),m_r2:N(r[3]),m_mean:N(r[4]),t_r1:N(r[5]),t_r2:N(r[6]),t_mean:N(r[7]),m_meanr:r[4],t_meanr:r[7]});
     }
   }
   // Mifepristone split over 2 rows (one for 3A-M, one for 3A-T)
@@ -2505,8 +2516,8 @@ function doCYPIC50(wb){
 
   const uploadRows=cpds.flatMap(c=>{
     const rows=[];
-    if(c.m_mean!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-M','IC50 (μM)':fmt(c.m_mean),'CRO':'Pharmaron'});
-    if(c.t_mean!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-T','IC50 (μM)':fmt(c.t_mean),'CRO':'Pharmaron'});
+    if(c.m_mean!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-M','IC50 (μM)':qfmt(c.m_meanr),'CRO':'Pharmaron'});
+    if(c.t_mean!==null)rows.push({'Compound_ID':c.id,'batch_id':c.batch,'CYP':'CYP3A-T','IC50 (μM)':qfmt(c.t_meanr),'CRO':'Pharmaron'});
     return rows;
   });
   return{parsed:{cpds,mif},uploadRows,sections};
@@ -2530,16 +2541,16 @@ function doCYPTDI(wb){
     if(c0.match(/GEN-/)||c0.match(/Mifepristone/i)){curId=c0;curBatch=String(r[1]||'').trim();}
     const pre=String(r[2]||'').trim();
     if((pre.includes('0 min')||pre.includes('30 min'))&&N(r[3])!==null){
-      raw.push({id:curId,batch:curBatch,preInc:pre,ic50:N(r[3]),inhPct:N(r[4])});
+      raw.push({id:curId,batch:curBatch,preInc:pre,ic50:N(r[3]),inhPct:N(r[4]),ic50raw:r[3],inhraw:r[4]});
     }
   }
   const byId={};
   for(const e of raw){
     const k=e.id+'|'+e.batch;
     if(!byId[k])byId[k]={id:e.id,batch:e.batch};
-    if(e.preInc.includes('0 min')){byId[k].ic50_0=e.ic50;byId[k].inh_0=e.inhPct;}
-    if(e.preInc.includes('without')){byId[k].ic50_30no=e.ic50;byId[k].inh_30no=e.inhPct;}
-    if(e.preInc.includes('with')&&!e.preInc.includes('without')){byId[k].ic50_30yes=e.ic50;byId[k].inh_30yes=e.inhPct;}
+    if(e.preInc.includes('0 min')){byId[k].ic50_0=e.ic50;byId[k].inh_0=e.inhPct;byId[k].ic50_0r=e.ic50raw;byId[k].inh_0r=e.inhraw;}
+    if(e.preInc.includes('without')){byId[k].ic50_30no=e.ic50;byId[k].inh_30no=e.inhPct;byId[k].ic50_30nor=e.ic50raw;byId[k].inh_30nor=e.inhraw;}
+    if(e.preInc.includes('with')&&!e.preInc.includes('without')){byId[k].ic50_30yes=e.ic50;byId[k].inh_30yes=e.inhPct;byId[k].ic50_30yesr=e.ic50raw;byId[k].inh_30yesr=e.inhraw;}
   }
   const allRows=Object.values(byId);
   const controls=allRows.filter(r=>r.id.match(/Mifepristone/i));
@@ -2608,7 +2619,7 @@ function doCYPTDI(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'⚗️',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'CYP':isoform,'IC50 (0 min Pre-Incubation) (μM)':c.ic50_0!==null?fmt(c.ic50_0):'','IC50 (30 min Pre-Incubation without NADPH) (μM)':c.ic50_30no!==null?fmt(c.ic50_30no):'','IC50 (30 min Pre-Incubation with NADPH) (μM)':c.ic50_30yes!==null?fmt(c.ic50_30yes):'','% Inhibition (0 min pre-incubation @ 30μM)':c.inh_0!==null?fmt(c.inh_0):'','% Inhibition (30 min pre-incubation without NADPH @ 30μM)':c.inh_30no!==null?fmt(c.inh_30no):'','% Inhibition (30 min pre-incubation with NADPH @ 30μM)':c.inh_30yes!==null?fmt(c.inh_30yes):'','CRO':'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'CYP':isoform,'IC50 (0 min Pre-Incubation) (μM)':qfmt(c.ic50_0r),'IC50 (30 min Pre-Incubation without NADPH) (μM)':qfmt(c.ic50_30nor),'IC50 (30 min Pre-Incubation with NADPH) (μM)':qfmt(c.ic50_30yesr),'% Inhibition (0 min pre-incubation @ 30μM)':qfmt(c.inh_0r),'% Inhibition (30 min pre-incubation without NADPH @ 30μM)':qfmt(c.inh_30nor),'% Inhibition (30 min pre-incubation with NADPH @ 30μM)':qfmt(c.inh_30yesr),'CRO':'Pharmaron'}));
   return{parsed:{cpds,controls,isoform},uploadRows,sections};
 }
 
@@ -2627,7 +2638,7 @@ function doUGT(wb){
   for(const r of summRows){
     const cid=String(r[0]||'').trim();
     if((cid.match(/GEN-/)||cid.match(/Silybin/i))&&N(r[2])!==null){
-      const o={id:cid,batch:String(r[1]||'').trim(),ic50:N(r[2])};
+      const o={id:cid,batch:String(r[1]||'').trim(),ic50:N(r[2]),ic50r:r[2]};
       if(cid.match(/Silybin/i))controls.push(o);
       else cpds.push(o);
     }
@@ -2702,7 +2713,7 @@ function doUGT(wb){
   if(cpdRows.length===0)cpdRows.push({key:'no_cpds',label:'Test compound rows in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''});
   sections.push({title:'Compound Results (Summary Sheet)',icon:'🧬',rows:cpdRows});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Enzyme':'UGT1A1','IC50 (μM)':c.ic50!==null?fmt(c.ic50):'','CRO':'Pharmaron','Comment':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Enzyme':'UGT1A1','IC50 (μM)':qfmt(c.ic50r),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -2725,7 +2736,7 @@ function doHERG(wb){
     if(cid.match(/GEN-/)){
       const ic50=N(r[4]);
       const hillSlope=null; // not in summary
-      cpds.push({id:cid.replace(/-AA-\d+/,''),batch:cid.match(/AA-\d+/)?cid.match(/AA-\d+/)[0]:'',topConc:N(r[3]),ic50});
+      cpds.push({id:cid.replace(/-AA-\d+/,''),batch:cid.match(/AA-\d+/)?cid.match(/AA-\d+/)[0]:'',topConc:N(r[3]),ic50,ic50r:r[4]});
     }
     if(cid.match(/Cisapride/i)){
       controls.push({id:'Cisapride',topConc:N(r[3]),ic50:N(r[4])});
@@ -2814,7 +2825,7 @@ function doHERG(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'❤️',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>{const ic50=c.ic50!==null?c.ic50:(rawCpds[c.id]||{}).ic50;return{'Compound_ID':c.id,'batch_id':c.batch,'hERG IC50 [μM]':ic50!==null?fmt(ic50,3):'','CRO':'Pharmaron'};});
+  const uploadRows=cpds.map(c=>{const ic50=c.ic50!==null?c.ic50:(rawCpds[c.id]||{}).ic50;return{'Compound_ID':c.id,'batch_id':c.batch,'hERG IC50 [μM]':(c.ic50r!=null&&/[<>≤≥]/.test(String(c.ic50r))?qfmt(c.ic50r,3):(ic50!==null?fmt(ic50,3):'')),'CRO':'Pharmaron'};});
   return{parsed:{cpds,ctrl},uploadRows,sections};
 }
 
@@ -2833,7 +2844,7 @@ function doPXR(wb){
   for(const r of summRows){
     const mol=String(r[0]||'').trim();
     if((mol.match(/GEN-/)||mol.match(/Rifampicin/i))&&N(r[3])!==null){
-      const o={id:mol,batch:String(r[1]||'').trim(),viab1:N(r[2]),fi1:N(r[3]),pct1:N(r[4]),viab10:N(r[5]),fi10:N(r[6]),pct10:N(r[7]),cro:String(r[8]||'Pharmaron')};
+      const o={id:mol,batch:String(r[1]||'').trim(),viab1:N(r[2]),fi1:N(r[3]),pct1:N(r[4]),viab10:N(r[5]),fi10:N(r[6]),pct10:N(r[7]),viab1r:r[2],fi1r:r[3],pct1r:r[4],viab10r:r[5],fi10r:r[6],pct10r:r[7],cro:String(r[8]||'Pharmaron')};
       if(mol.match(/Rifampicin/i))controls.push(o);
       else if(mol.match(/GEN-/))cpds.push(o);
     }
@@ -2882,7 +2893,7 @@ function doPXR(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'🧪',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'% Viability at 1 µM':c.viab1!==null?fmt(c.viab1):'','Mean Fold Induction at 1 µM':c.fi1!==null?fmt(c.fi1,2):'','% of Control at 1 µM':c.pct1!==null?fmt(c.pct1):'','% Viability at 10 µM':c.viab10!==null?fmt(c.viab10):'','Mean Fold Induction at 10 µM':c.fi10!==null?fmt(c.fi10,2):'','% of Control at 10 µM':c.pct10!==null?fmt(c.pct10):'','Comment':'','CRO':'Pharmaron'}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'% Viability at 1 µM':qfmt(c.viab1r),'Mean Fold Induction at 1 µM':qfmt(c.fi1r,2),'% of Control at 1 µM':qfmt(c.pct1r),'% Viability at 10 µM':qfmt(c.viab10r),'Mean Fold Induction at 10 µM':qfmt(c.fi10r,2),'% of Control at 10 µM':qfmt(c.pct10r),'Comment':'','CRO':'Pharmaron'}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -2907,9 +2918,9 @@ function doPhototox(wb){
       const pif_raw=String(r[4]||'');
       const o={id:cid,batch:String(r[1]||'').trim(),
         ic50m_str:ic50m_raw, ic50m:N(r[2]),
-        ic50p:N(r[3]),
+        ic50p:N(r[3]),ic50p_str:String(r[3]||''),
         pif_str:pif_raw, pif:N(r[4]),
-        mpe:N(r[5]),
+        mpe:N(r[5]),mpe_str:String(r[5]||''),
         hasPrecip:ic50m_raw.includes('>')||pif_raw.includes('>'),
       };
       if(cid.match(/Chlorpromazine|Hexachlorophene/i))controls.push(o);
@@ -2976,7 +2987,7 @@ function doPhototox(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'☀️',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'IC50 -Irr (μg/mL)':c.ic50m_str||fmt(c.ic50m,4),'IC50 +Irr (μg/mL)':fmt(c.ic50p,4),'PIF':c.pif_str||fmt(c.pif,3),'MPE':fmt(c.mpe,4),'CRO':'Pharmaron','Comment':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'IC50 -Irr (μg/mL)':c.ic50m_str||fmt(c.ic50m,4),'IC50 +Irr (μg/mL)':qfmt(c.ic50p_str,4),'PIF':c.pif_str||fmt(c.pif,3),'MPE':qfmt(c.mpe_str,4),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
@@ -3001,7 +3012,7 @@ function doHepatotox(wb){
       const ic50_raw=String(r[1]||'');
       const o={id:cid,batch:cid.match(/AA-\d+/)?cid.match(/AA-\d+/)[0]:'',
         ic50_str:ic50_raw, ic50:N(r[1]), ic50_gt:ic50_raw.includes('>'),
-        pct_viab:N(r[2]),species:'Human',
+        pct_viab:N(r[2]),pct_str:String(r[2]||''),species:'Human',
         hasPrecip:summRows.some(rx=>String(rx[0]||'').toLowerCase().includes('precip'))
       };
       if(cid.match(/Tamoxifen/i))controls.push(o);
@@ -3069,7 +3080,7 @@ function doHepatotox(wb){
   }
   if(cpds.length===0)sections.push({title:'Compound Results',icon:'🫀',rows:[{key:'no_cpds',label:'Test compound data in Summary',st:'fail',val:'No GEN- rows found in Summary',note:''}]});
 
-  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':'Human','IC50 (μM)':c.ic50_str,'% control activity at highest concentration':c.pct_viab!==null?fmt(c.pct_viab):'','CRO':'Pharmaron','Comment':''}));
+  const uploadRows=cpds.map(c=>({'Compound_ID':c.id,'batch_id':c.batch,'Species':'Human','IC50 (μM)':c.ic50_str,'% control activity at highest concentration':qfmt(c.pct_str),'CRO':'Pharmaron','Comment':''}));
   return{parsed:{cpds,controls},uploadRows,sections};
 }
 
