@@ -3534,8 +3534,9 @@ function downloadUploadOnly(){
   const rows=getLiveRows();
   const wb2=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([tmpl.cols,...rows.map(r=>tmpl.cols.map(c=>r[c]!==undefined?r[c]:''))]),'Upload');
-  XLSX.writeFile(wb2,SEL+'_upload_'+ds()+'.xlsx');
-  toast('Upload sheet downloaded','pass');
+  const tag=/^KS/i.test(tmpl.cddLabel||'')?'_KS':'';   // PK all-parameter sheet is the KS sheet
+  XLSX.writeFile(wb2,SEL+tag+'_upload_'+ds()+'.xlsx');
+  toast((tag?'KS ':'')+'Upload sheet downloaded','pass');
 }
 function copyTSV(){
   const tmpl=TEMPLATES[SEL];if(!tmpl)return;
