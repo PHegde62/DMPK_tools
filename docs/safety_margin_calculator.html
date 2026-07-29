@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safety Margin Calculator — Margin to Clinical Dose</title>
+<style>
+  :root{--bg:#f4f7fa;--panel:#ffffff;--panel2:#eef3f7;--ink:#1a2733;--muted:#5a6b7c;
+        --accent:#1C7293;--accent2:#065A82;--good:#2e8b57;--warn:#c55a11;--bad:#c0392b;--line:#dce5ec;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{padding:22px 26px;border-bottom:1px solid var(--line);background:var(--panel)}
+  h1{font-size:20px;margin:0 0 4px;color:var(--accent2)}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:22px 26px;max-width:1180px}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(20,40,60,.05)}
+  .card h2{font-size:14px;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input{width:100%;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:14px}
+  input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sub{font-size:11px;color:var(--muted);margin:14px 0 2px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .out{background:var(--panel2);border-radius:10px;padding:14px;margin-top:8px}
+  .big{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent2)}
+  .pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:13px;font-weight:700}
+  .pill.good{background:rgba(46,139,87,.14);color:var(--good)}
+  .pill.mod{background:rgba(197,90,17,.14);color:var(--warn)}
+  .pill.bad{background:rgba(192,57,43,.14);color:var(--bad)}
+  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .metric:last-child{border-bottom:none}
+  canvas{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+  .muted{color:var(--muted);font-size:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  footer{padding:16px 26px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Safety Margin Calculator — Margin to Clinical Dose</h1>
+  <p>Margin = animal NOAEL exposure / projected human exposure (unbound) · with CL sensitivity · Pillar 1 / Step 4 · P. Hegde</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Inputs (unbound)</h2>
+    <div class="sub">Animal NOAEL exposure</div>
+    <div class="row">
+      <div><label>NOAEL AUC,u (ug·h/mL)</label><input id="nauc" type="number" value="12" step="0.1"></div>
+      <div><label>NOAEL Cmax,u (ug/mL)</label><input id="ncmax" type="number" value="1.5" step="0.01"></div>
+    </div>
+    <div class="sub">Projected human exposure</div>
+    <div class="row">
+      <div><label>Human AUC,u (ug·h/mL)</label><input id="hauc" type="number" value="0.6" step="0.01"></div>
+      <div><label>Human Cmax,u (ug/mL)</label><input id="hcmax" type="number" value="0.12" step="0.01"></div>
+    </div>
+    <div class="sub">Sensitivity ranges (× on prediction)</div>
+    <div class="row">
+      <div><label>Human CL low ×</label><input id="cllo" type="number" value="0.5" step="0.1"></div>
+      <div><label>Human CL high ×</label><input id="clhi" type="number" value="2.0" step="0.1"></div>
+    </div>
+    <div class="row">
+      <div><label>fu low ×</label><input id="fulo" type="number" value="0.5" step="0.1"></div>
+      <div><label>fu high ×</label><input id="fuhi" type="number" value="2.0" step="0.1"></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <h2>Result</h2>
+      <div class="grid2">
+        <div class="out">
+          <div class="muted">AUC safety margin</div>
+          <div class="big" id="aucm">–</div>
+          <div id="aucflag"></div>
+        </div>
+        <div class="out">
+          <div class="muted">Cmax safety margin</div>
+          <div class="big" id="cmaxm">–</div>
+          <div id="cmaxflag"></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px">Flags: &lt;10× concern · 10–30× moderate · &gt;30× acceptable. Edit thresholds in code for ICH S9 oncology context.</p>
+    </div>
+
+    <div class="card">
+      <h2>Sensitivity — how the AUC margin moves</h2>
+      <canvas id="tornado" width="820" height="300"></canvas>
+      <div id="bottom" class="out" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<footer>Runs entirely in your browser — no data leaves this page. Illustrative defaults; replace with real NOAEL and projected human exposures. Well-stirred/IVIVE projections feed the human numbers.</footer>
+
+<script>
+const $=id=>document.getElementById(id), num=id=>parseFloat($(id).value);
+function flag(m){ if(m<10)return["CONCERN","bad"]; if(m<30)return["MODERATE","mod"]; return["ACCEPTABLE","good"]; }
+function setFlag(el,m){ const a=flag(m); el.innerHTML='<span class="pill '+a[1]+'">'+a[0]+'</span>'; }
+
+function compute(){
+  const nauc=num("nauc"),ncmax=num("ncmax"),hauc=num("hauc"),hcmax=num("hcmax");
+  const aucM=nauc/hauc, cmaxM=ncmax/hcmax;
+  $("aucm").textContent=aucM.toFixed(1)+"×"; setFlag($("aucflag"),aucM);
+  $("cmaxm").textContent=cmaxM.toFixed(1)+"×"; setFlag($("cmaxflag"),cmaxM);
+  const cllo=num("cllo"),clhi=num("clhi"),fulo=num("fulo"),fuhi=num("fuhi");
+  const rows=[
+    ["Predicted human CL", aucM*cllo, aucM*clhi],
+    ["Unbound fraction (fu)", aucM/fuhi, aucM/fulo],
+    ["NOAEL exposure", aucM*0.8, aucM*1.25],
+  ];
+  drawTornado(aucM, rows);
+  const clLow=aucM*cllo;
+  $("bottom").innerHTML='<b>Bottom line:</b> at the predicted CL the margin is '+aucM.toFixed(0)+'× ('+flag(aucM)[0]+
+    '). If human CL is '+clhi.toFixed(1)+'× lower than predicted it falls to '+clLow.toFixed(0)+'× ('+flag(clLow)[0]+
+    '). CL/transporter uncertainty is the swing factor — see where the bar crosses the 10× line.';
+}
+
+function drawTornado(base, rows){
+  const c=$("tornado"),ctx=c.getContext("2d"),W=c.width,H=c.height,mL=150,mR=30,mT=20,mB=40;
+  ctx.clearRect(0,0,W,H);
+  rows=rows.slice().sort((a,b)=>(a[2]-a[1])-(b[2]-b[1]));
+  let xmax=Math.max(base*1.1,rows[0][2],rows[1][2],rows[2][2])*1.05, xmin=5;
+  const X=v=>mL+(v-xmin)/(xmax-xmin)*(W-mL-mR);
+  const n=rows.length, bh=(H-mT-mB)/n*0.55;
+  ctx.font="11px sans-serif";
+  const gl=[5,10,20,30,40,50];
+  for(let k=0;k<gl.length;k++){ const gx=gl[k]; if(gx>xmax)continue; const px=X(gx);
+    ctx.strokeStyle="#e3ebf1";ctx.beginPath();ctx.moveTo(px,mT);ctx.lineTo(px,H-mB);ctx.stroke();
+    ctx.fillStyle="#5a6b7c";ctx.fillText(gx+"×",px-8,H-mB+16); }
+  const th=[[10,"#c0392b"],[30,"#2e8b57"]];
+  for(let k=0;k<th.length;k++){ const gx=th[k][0]; if(gx>xmax)continue; const px=X(gx);
+    ctx.strokeStyle=th[k][1];ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(px,mT);ctx.lineTo(px,H-mB);ctx.stroke();ctx.setLineDash([]); }
+  for(let i=0;i<rows.length;i++){ const name=rows[i][0],lo=rows[i][1],hi=rows[i][2], cy=mT+(i+0.5)*(H-mT-mB)/n;
+    ctx.fillStyle="#4a9fc4";ctx.strokeStyle="#1C7293";
+    ctx.fillRect(X(lo),cy-bh/2,X(hi)-X(lo),bh);ctx.strokeRect(X(lo),cy-bh/2,X(hi)-X(lo),bh);
+    ctx.fillStyle="#1a2733";ctx.textAlign="right";ctx.fillText(name,mL-10,cy+4);
+    ctx.textAlign="right";ctx.fillStyle="#5a6b7c";ctx.fillText(lo.toFixed(0)+"×",X(lo)-4,cy+4);
+    ctx.textAlign="left";ctx.fillText(hi.toFixed(0)+"×",X(hi)+4,cy+4);ctx.textAlign="left"; }
+  ctx.strokeStyle="#c55a11";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(X(base),mT);ctx.lineTo(X(base),H-mB);ctx.stroke();ctx.lineWidth=1;
+  ctx.fillStyle="#c55a11";ctx.fillText("base "+base.toFixed(0)+"×",X(base)+4,mT+10);
+}
+var ins=document.querySelectorAll("input");
+for(var i=0;i<ins.length;i++){ ins[i].addEventListener("input",compute); }
+compute();
+</script>
+</body>
+</html>
