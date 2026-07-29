@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDI Risk Tool — Genesis DMPK</title>
+<style>
+:root{
+  --bg:#f4f7fb; --panel:#fff; --panel2:#f7f9fc; --ink:#182430; --muted:#647385;
+  --line:#e2e8f0; --line2:#eef2f7; --accent:#2563eb; --accent2:#0f9d6b; --warn:#c2790a; --bad:#dc2626;
+  --chip:#eef3fa; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --shadow:0 1px 3px rgba(16,32,64,.06),0 1px 2px rgba(16,32,64,.04);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.5;font-size:14px}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 20px 80px}
+header h1{margin:0 0 4px;font-size:23px}
+header p{margin:0;color:var(--muted);font-size:13px;max-width:940px}
+.grid{display:grid;grid-template-columns:400px 1fr;gap:20px;margin-top:20px}
+@media(max-width:1080px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{font-size:12px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+label{display:block;font-size:12.5px;margin:11px 0 4px;font-weight:600}
+.hint{font-weight:400;color:var(--muted);font-size:11.5px}
+input,select,textarea{width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:8px 9px;font-size:13.5px;outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+textarea{resize:vertical;min-height:80px;font-family:var(--mono);font-size:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.seg button{flex:1 1 auto;background:#fff;border:1px solid var(--line);color:var(--muted);
+  padding:7px 6px;border-radius:8px;font-size:12px;cursor:pointer;min-width:56px}
+.seg button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.go{margin-top:16px;width:100%;background:var(--accent);border:none;color:#fff;font-weight:700;
+  font-size:15px;padding:12px;border-radius:11px;cursor:pointer;box-shadow:var(--shadow)}
+.go:hover{background:#1d4fd8}
+.btn2{background:#fff;border:1px solid var(--line);color:var(--accent);font-weight:600;font-size:12.5px;
+  padding:8px 11px;border-radius:9px;cursor:pointer}
+.btn2:hover{border-color:var(--accent);background:#f5f8ff}
+details{border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin-top:12px;overflow:hidden}
+details>summary{cursor:pointer;padding:10px 13px;font-weight:700;font-size:12.5px;list-style:none;display:flex;align-items:center;gap:8px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:'▸';color:var(--muted);font-size:11px}
+details[open]>summary::before{content:'▾'}
+details>summary .tag{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--muted);padding:2px 8px;border-radius:20px}
+details>summary .tag.on{background:var(--accent2)}
+.dbody{padding:0 13px 13px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);
+  padding:6px 7px;border-bottom:1px solid var(--line);font-weight:700}
+td{padding:5px 7px;border-bottom:1px solid var(--line2);vertical-align:middle}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:12px}
+tbody tr:hover td{background:#fafcff}
+td input{padding:5px 6px;font-size:12px;font-family:var(--mono);text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:var(--panel2)}
+.kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:20px;font-weight:700;font-family:var(--mono);margin-top:3px;line-height:1.15}
+.kpi .u{font-size:11px;color:var(--muted);font-weight:400;font-family:inherit}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.p-low{background:#e9f8f0;color:#0b6b46}.p-mod{background:#fff6e6;color:#8a5504}
+.p-high{background:#fdeaea;color:#a02020}.p-na{background:#eef2f7;color:var(--muted)}
+.p-str{background:#f6e9fb;color:#6b2288}
+.note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.55}
+.status{margin-top:10px;font-size:12.5px;border-radius:8px;padding:9px 11px;display:none}
+.status.show{display:block}
+.status.ok{background:#e9f8f0;border:1px solid #b8e6cd;color:#0b6b46}
+.status.err{background:#fdeaea;border:1px solid #f4c4c4;color:#a02020}
+.status.info{background:#eef4ff;border:1px solid #cfe0ff;color:#204a99}
+.status.warn{background:#fff6e6;border:1px solid #f0dcb4;color:#8a5504}
+.flag{border-left:3px solid var(--warn);background:#fffaf0;padding:8px 11px;border-radius:0 8px 8px 0;font-size:12.5px;margin-top:8px}
+.flag.bad{border-left-color:var(--bad);background:#fef6f6}
+.flag.ok{border-left-color:var(--accent2);background:#f3fbf7}
+code{background:var(--chip);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11.5px}
+.eq{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--chip);padding:8px 10px;border-radius:7px;margin:6px 0;line-height:1.8;overflow-x:auto}
+.tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tabs button{background:none;border:none;border-bottom:2px solid transparent;padding:8px 11px;font-size:12.5px;
+  color:var(--muted);cursor:pointer;font-family:inherit}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+.hide{display:none}
+.warnbox{font-size:11.5px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:10px}
+.trig{font-weight:700}
+.sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>DDI Risk Tool</h1>
+  <p>CYP IC<sub>50</sub> panel in → R<sub>1</sub>, R<sub>1,gut</sub>, R<sub>2</sub> (TDI) and mechanistic-static AUCR out, against
+  FDA 2020 / ICH M12 cut-offs, plus a regulatory-language summary. Cut-offs and system constants are editable and
+  every equation is shown in the Equations tab with its source.</p>
+</header>
+
+<div class="grid">
+<!-- ══════════ LEFT ══════════ -->
+<div>
+  <div class="card">
+    <h2>1 · Compound &amp; projected clinical exposure</h2>
+    <div class="row">
+      <div><label>Compound ID</label><input id="cid" placeholder="GEN-00000"></div>
+      <div><label>Program</label>
+        <select id="prog"><option>PC-006</option><option>PC-017</option><option>PC-018</option><option>—</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>MW <span class="hint">g/mol</span></label><input id="mw" type="number" step="any" placeholder="e.g. 450"></div>
+      <div><label>Highest dose <span class="hint">mg, clinical</span></label><input id="dose" type="number" step="any" placeholder="e.g. 200"></div>
+    </div>
+
+    <label>C<sub>max</sub> at steady state (total)</label>
+    <div class="row">
+      <div><input id="cmax" type="number" step="any" placeholder="value"></div>
+      <div><select id="cmaxu"><option value="uM">µM</option><option value="ngml">ng/mL</option></select></div>
+    </div>
+    <div class="sub" id="cmax-conv"></div>
+
+    <div class="row">
+      <div><label>f<sub>u,plasma</sub></label><input id="fup" type="number" step="any" value="0.01" placeholder="0–1"></div>
+      <div><label>R<sub>B</sub> <span class="hint">blood:plasma</span></label><input id="rb" type="number" step="any" value="1"></div>
+    </div>
+    <div class="sub" id="fu-floor-note"></div>
+
+    <div class="row3">
+      <div><label>F<sub>a</sub></label><input id="fa" type="number" step="any" value="1"></div>
+      <div><label>F<sub>g</sub></label><input id="fg" type="number" step="any" value="1"></div>
+      <div><label>k<sub>a</sub> <span class="hint">min⁻¹</span></label><input id="ka" type="number" step="any" value="0.1"></div>
+    </div>
+    <div class="sub">Guidance defaults for a worst-case estimate: F<sub>a</sub> = F<sub>g</sub> = 1, k<sub>a</sub> = 0.1 min⁻¹.</div>
+
+    <label>Guidance preset <span class="hint">changes the TDI C<sub>max,u</sub> multiplier</span></label>
+    <div class="seg" id="seg-guide">
+      <button data-v="fda" class="active">FDA 2020 (50×)</button>
+      <button data-v="m12">ICH M12 (5×)</button>
+    </div>
+    <div class="sub" id="guide-note"></div>
+
+    <label>K<sub>i</sub> from IC<sub>50</sub></label>
+    <div class="seg" id="seg-ki">
+      <button data-v="half" class="active">K<sub>i</sub> = IC<sub>50</sub>/2</button>
+      <button data-v="same">K<sub>i</sub> = IC<sub>50</sub></button>
+    </div>
+    <div class="sub">Use IC<sub>50</sub>/2 when the probe substrate was run at [S] ≈ K<sub>m</sub> (the Pharmaron default);
+    use K<sub>i</sub> = IC<sub>50</sub> when [S] ≪ K<sub>m</sub>. Both assume competitive inhibition.</div>
+
+    <button class="go" onclick="run()">Calculate DDI risk</button>
+    <div class="status" id="main-st"></div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Paste the Pharmaron CYP panel</h2>
+    <div class="note" style="margin:0 0 8px">Paste two or three columns — <code>CYP</code>, <code>IC50</code>, and optionally
+    <code>fu,mic</code>. Tabs, commas or multiple spaces all work. Qualifiers such as <code>&gt;50</code> are kept and treated
+    as "no inhibition up to 50 µM".</div>
+    <textarea id="paste" placeholder="CYP1A2&#9;&gt;50&#10;CYP2B6&#9;28.4&#10;CYP2C8&#9;12.1&#10;CYP2C9&#9;4.8&#10;CYP2C19&#9;19&#10;CYP2D6&#9;&gt;50&#10;CYP3A4-M&#9;1.9&#10;CYP3A4-T&#9;2.6"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn2" onclick="importPaste()">Import into panel</button>
+      <button class="btn2" onclick="clearPanel()">Clear panel</button>
+      <button class="btn2" onclick="demo()">Load worked example</button>
+    </div>
+    <div class="status" id="paste-st"></div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Victim-drug parameters <span class="hint">for the mechanistic static model</span></h2>
+    <div class="note" style="margin:0 0 8px">f<sub>m</sub> = fraction of the victim's hepatic clearance via that CYP;
+    F<sub>g</sub> = victim's intestinal availability. Defaults are the sensitive index substrates from the FDA clinical DDI
+    guidance — edit them if you are modelling a specific co-medication.</div>
+    <table>
+      <thead><tr><th>CYP</th><th>Index substrate</th><th class="num">f<sub>m</sub></th><th class="num">F<sub>g,victim</sub></th></tr></thead>
+      <tbody id="victim-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ RIGHT ══════════ -->
+<div>
+  <div class="card">
+    <div class="tabs">
+      <button class="on" data-t="panel" onclick="tab('panel')">CYP panel</button>
+      <button data-t="res" onclick="tab('res')">Risk assessment</button>
+      <button data-t="tp" onclick="tab('tp')">Transporters</button>
+      <button data-t="set" onclick="tab('set')">Cut-offs &amp; constants</button>
+      <button data-t="ai" onclick="tab('ai')">Summary text</button>
+      <button data-t="eq" onclick="tab('eq')">Equations &amp; refs</button>
+    </div>
+
+    <!-- PANEL -->
+    <div id="t-panel">
+      <h2>Reversible inhibition &amp; TDI inputs</h2>
+      <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>CYP</th><th class="num">IC<sub>50</sub> µM</th><th class="num">f<sub>u,mic</sub></th>
+          <th class="num">K<sub>i</sub> µM <span class="hint">override</span></th>
+          <th class="num">IC<sub>50</sub> 0 min</th><th class="num">IC<sub>50</sub> 30 min<br>+NADPH</th>
+          <th class="num">K<sub>I</sub> µM</th><th class="num">k<sub>inact</sub> min⁻¹</th>
+        </tr></thead>
+        <tbody id="panel-body"></tbody>
+      </table>
+      </div>
+      <div class="note">Leave a row blank if the assay was not run — it is reported as <b>insufficient data</b>, never
+      inferred. f<sub>u,mic</sub> defaults to 1; enter a measured microsomal binding value to convert IC<sub>50</sub> to an
+      unbound K<sub>i,u</sub>, which is what the guidance cut-offs are defined against.
+      The two IC<sub>50</sub>-shift columns map directly onto the Pharmaron TDI (IC<sub>50</sub> shift) report; K<sub>I</sub> and
+      k<sub>inact</sub> only come from a full inactivation-kinetics study.</div>
+      <button class="go" style="max-width:280px" onclick="run()">Calculate DDI risk</button>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="t-res" class="hide">
+      <div id="res-empty" class="note">Enter exposure inputs and at least one IC<sub>50</sub>, then press
+        <b>Calculate DDI risk</b>.</div>
+      <div id="res-out" class="hide">
+        <div class="kpis" id="kpis"></div>
+
+        <h2 style="margin-top:20px">Basic models — reversible inhibition</h2>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>CYP</th><th class="num">IC<sub>50</sub></th><th class="num">K<sub>i,u</sub> µM</th>
+            <th class="num">C<sub>max,u</sub>/K<sub>i,u</sub></th><th class="num">R<sub>1</sub></th>
+            <th class="num">R<sub>1,gut</sub></th><th>Basic-model outcome</th></tr></thead>
+          <tbody id="r1-body"></tbody>
+        </table>
+        </div>
+
+        <h2 style="margin-top:20px">Basic model — time-dependent inhibition</h2>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>CYP</th><th class="num">IC<sub>50</sub> shift</th><th class="num">K<sub>I,u</sub> µM</th>
+            <th class="num">k<sub>inact</sub></th><th class="num">k<sub>obs</sub> min⁻¹</th>
+            <th class="num">k<sub>deg</sub> min⁻¹</th><th class="num">R<sub>2</sub></th><th>Outcome</th></tr></thead>
+          <tbody id="r2-body"></tbody>
+        </table>
+        </div>
+
+        <h2 style="margin-top:20px">Mechanistic static model — predicted AUCR of the index substrate</h2>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>CYP</th><th>Victim</th><th class="num">A<sub>h</sub></th><th class="num">B<sub>h</sub></th>
+            <th class="num">A<sub>g</sub></th><th class="num">B<sub>g</sub></th>
+            <th class="num">AUCR</th><th>Predicted inhibitor strength</th></tr></thead>
+          <tbody id="msm-body"></tbody>
+        </table>
+        </div>
+        <div class="note">AUCR is calculated with inhibition mechanisms only (A and B, induction term C = 1), as the
+        guidance requires for an inhibition assessment. Gut terms are applied to CYP3A only.</div>
+
+        <div id="flags"></div>
+        <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn2" onclick="copyTsv()">Copy all results as TSV</button>
+          <button class="btn2" onclick="dlCsv()">Download CSV</button>
+          <button class="btn2" onclick="tab('ai')">Go to summary text</button>
+        </div>
+        <div class="status" id="copy-st"></div>
+      </div>
+    </div>
+
+    <!-- TRANSPORTERS -->
+    <div id="t-tp" class="hide">
+      <h2>Transporter inhibition — basic models</h2>
+      <div class="note" style="margin-top:0">Enter IC<sub>50</sub> values from the Pharmaron transporter panel.
+      The tool applies the FDA 2020 / ICH M12 basic-model cut-offs, using the correct driving concentration for each
+      transporter (unbound C<sub>max</sub>, unbound hepatic inlet, or gut lumen).</div>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Transporter</th><th class="num">IC<sub>50</sub> µM</th><th>Driving conc.</th>
+          <th class="num">[I] µM</th><th class="num">[I]/IC<sub>50</sub></th><th class="num">Cut-off</th><th>Outcome</th></tr></thead>
+        <tbody id="tp-body"></tbody>
+      </table>
+      </div>
+      <button class="btn2" style="margin-top:12px" onclick="run()">Recalculate</button>
+      <div class="note">P-gp / BCRP: the gut cut-off applies to orally administered drugs; for an IV drug or for hepatic
+      and renal P-gp/BCRP, the relevant test is C<sub>max,u</sub>/IC<sub>50</sub> ≥ 0.02 — shown as a second row.
+      OATP1B1/1B3 use the unbound hepatic inlet concentration f<sub>u,p</sub>·I<sub>in,max</sub>.</div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="t-set" class="hide"></div>
+
+    <!-- AI -->
+    <div id="t-ai" class="hide">
+      <h2>Regulatory-language DDI summary</h2>
+      <div id="tpl-out" class="note">Press <b>Calculate DDI risk</b> — a rule-based summary is generated with no API key
+      needed. Every sentence quotes the R value or AUCR that justifies it.</div>
+      <details style="margin-top:14px">
+        <summary>Claude API — polished prose version <span class="tag" id="ai-tag">off</span></summary>
+        <div class="dbody">
+          <label>Anthropic API key <span class="hint">stored only in this browser</span></label>
+          <input id="ai-key" type="password" placeholder="sk-ant-...">
+          <div class="row" style="margin-top:8px">
+            <div><label>Model</label><input id="ai-model" value="claude-sonnet-5"></div>
+            <div><label>&nbsp;</label>
+              <label style="font-weight:400;font-size:12px;display:flex;gap:7px;align-items:center;margin:0;padding-top:8px">
+                <input type="checkbox" id="ai-remember" checked style="width:auto"> Remember key</label></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
+            <button class="btn2" onclick="saveKey()">Save</button>
+            <button class="btn2" onclick="clearKey()">Clear</button>
+            <button class="btn2" onclick="askClaude()">Generate summary</button>
+          </div>
+          <div class="status" id="ai-st"></div>
+          <div class="warnbox">Only the numeric DDI results are sent to <code>api.anthropic.com</code> — no structures.
+          The calculations never depend on the API. Read the text before it goes into a risk-assessment memo.</div>
+        </div>
+      </details>
+      <div id="ai-out" style="margin-top:14px"></div>
+    </div>
+
+    <!-- EQUATIONS -->
+    <div id="t-eq" class="hide">
+      <h2>Basic models</h2>
+      <div class="eq">
+<b>Reversible inhibition</b> — FDA 2020 Fig. 1 / ICH M12 §2.1.2.1<br>
+R<sub>1</sub> = 1 + (C<sub>max,u</sub> / K<sub>i,u</sub>)&nbsp;&nbsp;&nbsp;&nbsp;trigger R<sub>1</sub> ≥ 1.02 (i.e. C<sub>max,u</sub>/K<sub>i,u</sub> ≥ 0.02)<br>
+R<sub>1,gut</sub> = 1 + (I<sub>gut</sub> / K<sub>i,u</sub>), I<sub>gut</sub> = Dose / 250 mL&nbsp;&nbsp;&nbsp;&nbsp;trigger R<sub>1,gut</sub> ≥ 11 (CYP3A, oral)<br>
+K<sub>i,u</sub> = K<sub>i</sub> × f<sub>u,mic</sub>; K<sub>i</sub> = IC<sub>50</sub>/2 when [S] ≈ K<sub>m</sub>
+      </div>
+      <div class="eq">
+<b>Time-dependent inhibition</b> — FDA 2020 Fig. 2 / ICH M12 §2.1.2.2<br>
+R<sub>2</sub> = (k<sub>obs</sub> + k<sub>deg</sub>) / k<sub>deg</sub>&nbsp;&nbsp;&nbsp;&nbsp;trigger R<sub>2</sub> ≥ 1.25<br>
+k<sub>obs</sub> = k<sub>inact</sub> × m·C<sub>max,u</sub> / (K<sub>I,u</sub> + m·C<sub>max,u</sub>)<br>
+&nbsp;&nbsp;m = 50 (FDA 2020) or m = 5 (ICH M12) — this is a real difference between the two documents
+      </div>
+      <div class="eq">
+<b>Mechanistic static model</b> — FDA 2020 Fig. 7 / ICH M12 Table 3 (Fahmi 2009)<br>
+AUCR = 1/[(A<sub>g</sub>·B<sub>g</sub>·C<sub>g</sub>)·(1−F<sub>g</sub>) + F<sub>g</sub>] × 1/[(A<sub>h</sub>·B<sub>h</sub>·C<sub>h</sub>)·f<sub>m</sub> + (1−f<sub>m</sub>)]<br>
+A = 1 / (1 + [I]/K<sub>i</sub>)<br>
+B = k<sub>deg</sub> / (k<sub>deg</sub> + [I]·k<sub>inact</sub>/([I] + K<sub>I</sub>))<br>
+C = 1 + d·E<sub>max</sub>·[I]/([I] + EC<sub>50</sub>)&nbsp;&nbsp;(= 1 here: inhibition-only assessment)<br>
+[I]<sub>h</sub> = f<sub>u,p</sub> × (C<sub>max</sub> + F<sub>a</sub>·F<sub>g</sub>·k<sub>a</sub>·Dose / Q<sub>h</sub> / R<sub>B</sub>)<br>
+[I]<sub>g</sub> = F<sub>a</sub>·k<sub>a</sub>·Dose / Q<sub>en</sub>
+      </div>
+      <div class="eq">
+<b>Hepatic inlet (for OATP1B1/3)</b> — FDA 2020 Fig. 6<br>
+I<sub>in,max</sub> = C<sub>max</sub> + (F<sub>a</sub>·F<sub>g</sub>·k<sub>a</sub>·Dose)/Q<sub>h</sub>/R<sub>B</sub><br>
+R = 1 + (f<sub>u,p</sub>·I<sub>in,max</sub> / IC<sub>50</sub>)&nbsp;&nbsp;&nbsp;&nbsp;trigger R ≥ 1.1
+      </div>
+      <h2 style="margin-top:20px">The f<sub>u,p</sub> &lt; 1% rule</h2>
+      <div class="note" style="margin-top:0">Both FDA 2020 and ICH M12 state that where f<sub>u,p</sub> is experimentally
+      determined to be &lt; 0.01, a value of <b>0.01 must be used</b> in these calculations. This tool applies that floor
+      automatically and tells you when it has done so. It can be switched off in Cut-offs &amp; constants for an
+      internal sensitivity analysis, but the regulatory submission number is the floored one.</div>
+      <h2 style="margin-top:20px">Sources</h2>
+      <table>
+        <thead><tr><th>Value</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>R<sub>1</sub> ≥ 1.02, R<sub>1,gut</sub> ≥ 11, R<sub>2</sub> ≥ 1.25, R<sub>3</sub> ≤ 0.8</td><td>FDA, <i>In Vitro Drug Interaction Studies — Cytochrome P450 Enzyme- and Transporter-Mediated Drug Interactions</i>, final guidance, Jan 2020 (Figs 1–4)</td></tr>
+          <tr><td>k<sub>obs</sub> multiplier 5× C<sub>max,u</sub>; AUCR window 0.80–1.25</td><td>ICH M12 <i>Drug Interaction Studies</i>, §2.1.2.2 and §7.3</td></tr>
+          <tr><td>k<sub>deg</sub> per enzyme</td><td>ICH M12 Table 6 — hepatic CYP1A2 0.00030, CYP2B6 0.00036, CYP2C8 0.00053, CYP2C9 0.00011, CYP2C19 0.00044, CYP2D6 0.00023, CYP3A4 0.00032, intestinal CYP3A4 0.00048 min⁻¹</td></tr>
+          <tr><td>Q<sub>h</sub> 97 L/h/70 kg, Q<sub>en</sub> 18 L/h/70 kg, k<sub>a</sub> 0.1 min⁻¹</td><td>FDA 2020 Fig. 7 notes (Yang 2007a/b; Ito 1998; Rostami-Hodjegan &amp; Tucker 2004)</td></tr>
+          <tr><td>Mechanistic static model form</td><td>Fahmi et al., <i>Drug Metab Dispos</i> 2009;37:1658</td></tr>
+          <tr><td>Transporter cut-offs</td><td>FDA 2020 §V and Fig. 6; ICH M12 Table 4</td></tr>
+          <tr><td>Index substrate f<sub>m</sub> / F<sub>g</sub></td><td>FDA, <i>Clinical Drug Interaction Studies</i>, Jan 2020, index substrate tables; midazolam F<sub>g</sub> 0.51 from Galetin/Gertz analyses</td></tr>
+        </tbody>
+      </table>
+      <div class="warnbox">These are basic and static models. They are deliberately conservative and generate false
+      positives. A basic-model trigger means "cannot be excluded in vitro", not "there will be a DDI" — the next step is a
+      mechanistic static or PBPK assessment, or a clinical study with a sensitive index substrate.</div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   DDI Risk Tool — Genesis DMPK
+   Cut-offs from FDA 2020 in vitro DDI guidance + ICH M12 (both in the
+   team Literature folder). Constants in CFG, all editable in the UI.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const CYPS = [
+  {k:'CYP1A2',  kdeg:0.00030, victim:'Caffeine',        fm:0.95, fgv:1.00, gut:false},
+  {k:'CYP2B6',  kdeg:0.00036, victim:'Bupropion',       fm:0.80, fgv:1.00, gut:false},
+  {k:'CYP2C8',  kdeg:0.00053, victim:'Repaglinide',     fm:0.60, fgv:1.00, gut:false},
+  {k:'CYP2C9',  kdeg:0.00011, victim:'(S)-Warfarin',    fm:0.91, fgv:1.00, gut:false},
+  {k:'CYP2C19', kdeg:0.00044, victim:'Omeprazole',      fm:0.87, fgv:1.00, gut:false},
+  {k:'CYP2D6',  kdeg:0.00023, victim:'Desipramine',     fm:0.90, fgv:1.00, gut:false},
+  {k:'CYP3A4-M',kdeg:0.00032, victim:'Midazolam',       fm:0.93, fgv:0.51, gut:true, kdegGut:0.00048, label:'CYP3A4 (midazolam probe)'},
+  {k:'CYP3A4-T',kdeg:0.00032, victim:'Midazolam',       fm:0.93, fgv:0.51, gut:true, kdegGut:0.00048, label:'CYP3A4 (testosterone probe)'},
+];
+
+const TRANSPORTERS = [
+  {k:'P-gp (oral)',     drive:'gut',   cut:10,   op:'>=', note:'I_gut/IC50 ≥ 10 (i.e. Ki < 0.1×Dose/250 mL)'},
+  {k:'P-gp (systemic)', drive:'cmaxu', cut:0.02, op:'>=', note:'Cmax,u/IC50 ≥ 0.02 — IV drugs, hepatic & renal P-gp'},
+  {k:'BCRP (oral)',     drive:'gut',   cut:10,   op:'>=', note:'I_gut/IC50 ≥ 10'},
+  {k:'BCRP (systemic)', drive:'cmaxu', cut:0.02, op:'>=', note:'Cmax,u/IC50 ≥ 0.02'},
+  {k:'OATP1B1',         drive:'inlet', cut:0.1,  op:'>=', note:'fu,p·Iin,max/IC50 ≥ 0.1 (R ≥ 1.1)'},
+  {k:'OATP1B3',         drive:'inlet', cut:0.1,  op:'>=', note:'fu,p·Iin,max/IC50 ≥ 0.1 (R ≥ 1.1)'},
+  {k:'OAT1',            drive:'cmaxu', cut:0.1,  op:'>=', note:'Cmax,u/IC50 ≥ 0.1'},
+  {k:'OAT3',            drive:'cmaxu', cut:0.1,  op:'>=', note:'Cmax,u/IC50 ≥ 0.1'},
+  {k:'OCT2',            drive:'cmaxu', cut:0.1,  op:'>=', note:'Cmax,u/IC50 ≥ 0.1'},
+  {k:'MATE1',           drive:'cmaxu', cut:0.02, op:'>=', note:'Cmax,u/IC50 ≥ 0.02'},
+  {k:'MATE2-K',         drive:'cmaxu', cut:0.02, op:'>=', note:'Cmax,u/IC50 ≥ 0.02'},
+  {k:'BSEP',            drive:'cmaxu', cut:0.1,  op:'>=', note:'No formal guidance cut-off; Cmax,u/IC50 ≥ 0.1 used as an internal cholestatic-liability flag'},
+];
+
+const CFG_DEFAULT = {
+  R1:1.02, R1gut:11, R2:1.25, AUCR_lo:0.80, AUCR_hi:1.25,
+  AUCR_mod:2, AUCR_strong:5, shift:1.5,
+  Qh:1.6167,          // 97 L/h/70 kg -> L/min
+  Qen:0.30,           // 18 L/h/70 kg -> L/min
+  fuFloor:true, fuFloorVal:0.01,
+  tdiMult:50,         // FDA 2020; ICH M12 uses 5
+};
+let CFG = JSON.parse(JSON.stringify(CFG_DEFAULT));
+try{ const s=localStorage.getItem('ddi_cfg'); if(s) CFG=Object.assign(CFG,JSON.parse(s)); }catch(e){}
+
+let KIMODE='half', GUIDE='fda', LAST=null;
+
+/* ── helpers ─────────────────────────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const numOf=id=>{const v=parseFloat(($(id)||{}).value); return isFinite(v)?v:null;};
+function fmt(v,d){ if(v==null||!isFinite(v)) return '—';
+  d=(d==null)?(Math.abs(v)>=100?0:Math.abs(v)>=10?1:Math.abs(v)>=1?2:Math.abs(v)>=0.01?3:4):d;
+  return v.toFixed(d); }
+function fmtG(v){ if(v==null||!isFinite(v))return '—';
+  if(v>=1e4||(v!==0&&Math.abs(v)<1e-3)) return v.toExponential(2); return fmt(v); }
+function st(id,msg,kind){const e=$(id); if(!e)return; e.textContent=msg;
+  e.className=msg?('status show '+(kind||'info')):'status';}
+/* parse a value that may carry a qualifier: ">50" -> {v:50,q:'>'} */
+function pq(sRaw){
+  const s=String(sRaw==null?'':sRaw).trim(); if(!s) return null;
+  const m=s.match(/^([<>≤≥]?)\s*([\d.eE+-]+)$/); if(!m) return null;
+  const v=parseFloat(m[2]); if(!isFinite(v)) return null;
+  return {v, q:m[1]||''};
+}
+
+/* ── build input tables ──────────────────────────────────────────────── */
+function buildPanel(){
+  $('panel-body').innerHTML = CYPS.map(c=>`<tr data-k="${c.k}">
+    <td style="font-weight:600;white-space:nowrap">${c.label||c.k}</td>
+    <td class="num"><input class="p-ic50" placeholder="—" style="width:74px"></td>
+    <td class="num"><input class="p-fumic" type="number" step="any" value="1" style="width:62px"></td>
+    <td class="num"><input class="p-ki" type="number" step="any" placeholder="—" style="width:66px"></td>
+    <td class="num"><input class="p-s0" placeholder="—" style="width:70px"></td>
+    <td class="num"><input class="p-s30" placeholder="—" style="width:70px"></td>
+    <td class="num"><input class="p-KI" type="number" step="any" placeholder="—" style="width:66px"></td>
+    <td class="num"><input class="p-kinact" type="number" step="any" placeholder="—" style="width:70px"></td>
+  </tr>`).join('');
+}
+function buildVictim(){
+  $('victim-body').innerHTML = CYPS.map(c=>`<tr data-k="${c.k}">
+    <td style="font-weight:600;white-space:nowrap">${c.k}</td>
+    <td><input class="v-name" value="${c.victim}" style="text-align:left;font-family:inherit"></td>
+    <td class="num"><input class="v-fm" type="number" step="any" value="${c.fm}" style="width:62px"></td>
+    <td class="num"><input class="v-fg" type="number" step="any" value="${c.fgv}" style="width:62px"></td>
+  </tr>`).join('');
+}
+function buildTp(){
+  $('tp-body').innerHTML = TRANSPORTERS.map(t=>`<tr data-k="${t.k}">
+    <td style="font-weight:600;white-space:nowrap" title="${t.note}">${t.k}</td>
+    <td class="num"><input class="tp-ic50" placeholder="—" style="width:76px"></td>
+    <td class="tp-drive" style="font-size:11.5px;color:var(--muted)"></td>
+    <td class="num tp-i">—</td><td class="num tp-r">—</td>
+    <td class="num">${t.op==='>='?'≥ ':''}${t.cut}</td><td class="tp-out">—</td>
+  </tr>`).join('');
+  $('tp-body').querySelectorAll('.tp-ic50').forEach(i=>i.addEventListener('change',()=>{ if(LAST) run(true); }));
+}
+function clearPanel(){ buildPanel(); st('paste-st','Panel cleared.','ok'); }
+
+/* ── paste import ────────────────────────────────────────────────────── */
+const ALIAS = {'1a2':'CYP1A2','2b6':'CYP2B6','2c8':'CYP2C8','2c9':'CYP2C9','2c19':'CYP2C19','2d6':'CYP2D6',
+  '3a4':'CYP3A4-M','3a4m':'CYP3A4-M','3a4midazolam':'CYP3A4-M','3a4mdz':'CYP3A4-M','3a':'CYP3A4-M',
+  '3a4t':'CYP3A4-T','3a4testosterone':'CYP3A4-T','3a4tst':'CYP3A4-T'};
+function normCyp(s){
+  const t=String(s).toLowerCase().replace(/cyp|[\s_()\-–]/g,'');
+  return ALIAS[t]||null;
+}
+function importPaste(){
+  const lines=$('paste').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  let n=0, miss=[];
+  lines.forEach(l=>{
+    const parts=l.split(/\t|,|\s{2,}|\s+/).filter(Boolean);
+    if(parts.length<2) return;
+    const key=normCyp(parts[0]);
+    if(!key){ miss.push(parts[0]); return; }
+    const tr=$('panel-body').querySelector(`tr[data-k="${key}"]`); if(!tr) return;
+    tr.querySelector('.p-ic50').value=parts[1];
+    if(parts[2] && isFinite(parseFloat(parts[2]))) tr.querySelector('.p-fumic').value=parseFloat(parts[2]);
+    n++;
+  });
+  st('paste-st', n? `Imported ${n} CYP row${n>1?'s':''}.${miss.length?' Unrecognised: '+miss.join(', ')+'.':''}`
+     : 'Nothing recognised — each line needs a CYP name then an IC50 value.', n?'ok':'warn');
+  if(n) tab('panel');
+}
+function demo(){
+  $('cid').value='GEN-DEMO'; $('mw').value='450'; $('dose').value='200';
+  $('cmax').value='2'; $('cmaxu').value='uM'; $('fup').value='0.02'; $('rb').value='1';
+  $('paste').value='CYP1A2\t>50\nCYP2B6\t28.4\nCYP2C8\t12.1\nCYP2C9\t4.8\nCYP2C19\t19\nCYP2D6\t>50\nCYP3A4-M\t1.9\nCYP3A4-T\t2.6';
+  importPaste();
+  const t=$('panel-body').querySelector('tr[data-k="CYP3A4-M"]');
+  t.querySelector('.p-s0').value='1.9'; t.querySelector('.p-s30').value='0.6';
+  t.querySelector('.p-KI').value='3.1'; t.querySelector('.p-kinact').value='0.035';
+  run();
+  st('paste-st','Worked example loaded — a moderate CYP3A inhibitor with a TDI signal.','ok');
+}
+
+/* ── segmented controls ──────────────────────────────────────────────── */
+function seg(id,set){
+  $(id).addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    [...$(id).children].forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    set(b.dataset.v); if(LAST) run(true);
+  });
+}
+seg('seg-ki',v=>KIMODE=v);
+seg('seg-guide',v=>{ GUIDE=v; CFG.tdiMult = (v==='m12')?5:50; paintGuide(); buildSettings(); });
+function paintGuide(){
+  $('guide-note').innerHTML = GUIDE==='m12'
+    ? 'ICH M12 uses k<sub>obs</sub> = k<sub>inact</sub>·<b>5</b>·C<sub>max,u</sub>/(K<sub>I,u</sub> + 5·C<sub>max,u</sub>). Less conservative than FDA on TDI; reversible and gut cut-offs are the same.'
+    : 'FDA 2020 uses k<sub>obs</sub> = k<sub>inact</sub>·<b>50</b>·C<sub>max,u</sub>/(K<sub>I,u</sub> + 50·C<sub>max,u</sub>) — the more conservative of the two.';
+}
+
+/* ── exposure block ──────────────────────────────────────────────────── */
+function exposure(){
+  const mw=numOf('mw'), dose=numOf('dose');
+  let cmax=numOf('cmax');
+  if(cmax!=null && $('cmaxu').value==='ngml'){
+    if(!(mw>0)) return {err:'Enter MW to convert Cmax from ng/mL to µM.'};
+    cmax = cmax/mw;                            // ng/mL ÷ g/mol = µmol/L
+  }
+  let fup=numOf('fup'); if(fup==null) fup=1;
+  let floored=false;
+  if(CFG.fuFloor && fup<CFG.fuFloorVal){ fup=CFG.fuFloorVal; floored=true; }
+  const rb=numOf('rb')>0?numOf('rb'):1;
+  const fa=numOf('fa')!=null?numOf('fa'):1, fg=numOf('fg')!=null?numOf('fg'):1;
+  const ka=numOf('ka')!=null?numOf('ka'):0.1;
+  const doseUmol = (dose!=null && mw>0) ? dose*1000/mw : null;   // µmol
+  const cmaxu = cmax!=null ? cmax*fup : null;
+  const Igut  = doseUmol!=null ? doseUmol/0.250 : null;          // µmol/L = µM
+  const inlet = (cmax!=null && doseUmol!=null) ? cmax + fa*fg*ka*doseUmol/CFG.Qh/rb : null;
+  const Ih    = inlet!=null ? fup*inlet : (cmaxu!=null?cmaxu:null);
+  const Ig    = doseUmol!=null ? fa*ka*doseUmol/CFG.Qen : null;
+  return {mw,dose,doseUmol,cmax,fup,floored,rb,fa,fg,ka,cmaxu,Igut,inlet,Ih,Ig};
+}
+
+/* ── per-CYP calculations ────────────────────────────────────────────── */
+function kiuOf(row,c){
+  const ic=pq(row.querySelector('.p-ic50').value);
+  const kiOv=parseFloat(row.querySelector('.p-ki').value);
+  const fumic=parseFloat(row.querySelector('.p-fumic').value);
+  const fu=isFinite(fumic)&&fumic>0?fumic:1;
+  let ki=null, src='';
+  if(isFinite(kiOv)&&kiOv>0){ ki=kiOv; src='Ki entered'; }
+  else if(ic){ ki = KIMODE==='half' ? ic.v/2 : ic.v; src='from IC50'; }
+  return {ic, kiu: ki!=null? ki*fu : null, fu, src};
+}
+function tier(R,cut){
+  if(R==null) return {t:'insufficient data',c:'p-na'};
+  if(R<cut) return {t:'risk excluded',c:'p-low'};
+  return {t:'cannot exclude',c:'p-high'};
+}
+function strength(a){
+  if(a==null) return {t:'—',c:'p-na'};
+  if(a<CFG.AUCR_hi) return {t:'no interaction predicted',c:'p-low'};
+  if(a<CFG.AUCR_mod) return {t:'weak inhibitor',c:'p-mod'};
+  if(a<CFG.AUCR_strong) return {t:'moderate inhibitor',c:'p-high'};
+  return {t:'strong inhibitor',c:'p-str'};
+}
+
+/* ── main run ────────────────────────────────────────────────────────── */
+function run(quiet){
+  const E=exposure();
+  if(E.err){ st('main-st',E.err,'warn'); return; }
+  if(E.cmax==null){ if(!quiet) st('main-st','Enter a projected steady-state Cmax — every basic model needs it.','warn'); return; }
+  st('main-st','',null);
+
+  $('cmax-conv').innerHTML = E.cmax!=null
+    ? `C<sub>max</sub> = ${fmtG(E.cmax)} µM; C<sub>max,u</sub> = ${fmtG(E.cmaxu)} µM`+
+      (E.Igut!=null?`; I<sub>gut</sub> = ${fmtG(E.Igut)} µM; [I]<sub>h</sub> = ${fmtG(E.Ih)} µM; [I]<sub>g</sub> = ${fmtG(E.Ig)} µM`:'')
+    : '';
+  $('fu-floor-note').innerHTML = E.floored
+    ? `<span style="color:var(--warn);font-weight:600">f<sub>u,p</sub> floored to ${CFG.fuFloorVal}</span> — both FDA 2020 and ICH M12 require f<sub>u,p</sub> = 0.01 when the measured value is &lt; 1%. Your entered value is retained for reference only.`
+    : '';
+
+  const r1=[], r2=[], msm=[], flags=[], recs=[];
+
+  CYPS.forEach(c=>{
+    const row=$('panel-body').querySelector(`tr[data-k="${c.k}"]`);
+    const {ic,kiu,fu}=kiuOf(row,c);
+    const rec={cyp:c.k, label:c.label||c.k, ic:ic, kiu, fumic:fu, gut:c.gut, victim:null};
+
+    /* ---- R1 ---- */
+    const R1 = (kiu!=null && E.cmaxu!=null) ? 1 + E.cmaxu/kiu : null;
+    const ratio = (kiu!=null && E.cmaxu!=null) ? E.cmaxu/kiu : null;
+    const R1g = (c.gut && kiu!=null && E.Igut!=null) ? 1 + E.Igut/kiu : null;
+    rec.R1=R1; rec.R1g=R1g; rec.ratio=ratio;
+    const t1=tier(R1,CFG.R1);
+    const t1g = R1g==null?null:tier(R1g,CFG.R1gut);
+    let out1 = R1==null ? '<span class="pill p-na">insufficient data</span>'
+      : `<span class="pill ${t1.c}">R₁ ${t1.t}</span>`;
+    if(t1g) out1 += ` <span class="pill ${t1g.c}">gut ${t1g.t}</span>`;
+    if(ic && ic.q==='>' && R1!=null && R1<CFG.R1)
+      out1 += ' <span class="hint">no inhibition to '+ic.v+' µM</span>';
+    r1.push(`<tr><td style="font-weight:600;white-space:nowrap">${rec.label}</td>
+      <td class="num">${ic?(ic.q+fmt(ic.v)):'—'}</td><td class="num">${fmtG(kiu)}</td>
+      <td class="num">${fmtG(ratio)}</td><td class="num">${R1!=null?fmt(R1,3):'—'}</td>
+      <td class="num">${R1g!=null?fmt(R1g,2):'—'}</td><td>${out1}</td></tr>`);
+
+    /* ---- R2 / TDI ---- */
+    const s0=pq(row.querySelector('.p-s0').value), s30=pq(row.querySelector('.p-s30').value);
+    const shift = (s0&&s30&&s30.v>0) ? s0.v/s30.v : null;
+    const KI=parseFloat(row.querySelector('.p-KI').value);
+    const kin=parseFloat(row.querySelector('.p-kinact').value);
+    const KIu = isFinite(KI)&&KI>0 ? KI*fu : null;
+    let kobs=null, R2=null;
+    if(KIu!=null && isFinite(kin)&&kin>0 && E.cmaxu!=null){
+      const m=CFG.tdiMult*E.cmaxu;
+      kobs = kin*m/(KIu+m);
+      R2 = (kobs + c.kdeg)/c.kdeg;
+    }
+    rec.shift=shift; rec.R2=R2; rec.kobs=kobs; rec.KIu=KIu; rec.kinact=isFinite(kin)?kin:null;
+    let out2;
+    if(R2!=null){ const t=tier(R2,CFG.R2); out2=`<span class="pill ${t.c}">${t.t}</span>`; }
+    else if(shift!=null && shift>=CFG.shift) out2='<span class="pill p-mod">TDI signal — K<sub>I</sub>/k<sub>inact</sub> needed</span>';
+    else if(shift!=null) out2='<span class="pill p-low">no TDI signal</span>';
+    else out2='<span class="pill p-na">not determined</span>';
+    r2.push(`<tr><td style="font-weight:600;white-space:nowrap">${rec.label}</td>
+      <td class="num">${shift!=null?fmt(shift,2)+'×':'—'}</td><td class="num">${fmtG(KIu)}</td>
+      <td class="num">${isFinite(kin)?fmt(kin,4):'—'}</td><td class="num">${fmtG(kobs)}</td>
+      <td class="num">${fmt(c.kdeg,5)}</td><td class="num">${R2!=null?fmt(R2,3):'—'}</td><td>${out2}</td></tr>`);
+
+    /* ---- MSM ---- */
+    const vr=$('victim-body').querySelector(`tr[data-k="${c.k}"]`);
+    const fm=parseFloat(vr.querySelector('.v-fm').value), fgv=parseFloat(vr.querySelector('.v-fg').value);
+    const vname=vr.querySelector('.v-name').value||c.victim;
+    rec.victim=vname; rec.fm=fm; rec.fgv=fgv;
+    let AUCR=null, Ah=null, Bh=null, Ag=null, Bg=null;
+    if(kiu!=null && E.Ih!=null && isFinite(fm)){
+      Ah = 1/(1+E.Ih/kiu);
+      Bh = (KIu!=null && isFinite(kin)&&kin>0)
+           ? c.kdeg/(c.kdeg + E.Ih*kin/(E.Ih+KIu)) : 1;
+      if(c.gut && E.Ig!=null && isFinite(fgv)){
+        Ag = 1/(1+E.Ig/kiu);
+        const kdg=c.kdegGut||c.kdeg;
+        Bg = (KIu!=null && isFinite(kin)&&kin>0)
+             ? kdg/(kdg + E.Ig*kin/(E.Ig+KIu)) : 1;
+      } else { Ag=1; Bg=1; }
+      const gutTerm = (c.gut && isFinite(fgv)) ? 1/((Ag*Bg)*(1-fgv)+fgv) : 1;
+      const hepTerm = 1/((Ah*Bh)*fm + (1-fm));
+      AUCR = gutTerm*hepTerm;
+    }
+    rec.AUCR=AUCR; rec.Ah=Ah; rec.Bh=Bh; rec.Ag=Ag; rec.Bg=Bg;
+    const s=strength(AUCR);
+    msm.push(`<tr><td style="font-weight:600;white-space:nowrap">${rec.label}</td><td>${vname}</td>
+      <td class="num">${fmt(Ah,3)}</td><td class="num">${fmt(Bh,3)}</td>
+      <td class="num">${c.gut?fmt(Ag,3):'—'}</td><td class="num">${c.gut?fmt(Bg,3):'—'}</td>
+      <td class="num" style="font-weight:700">${AUCR!=null?fmt(AUCR,2):'—'}</td>
+      <td><span class="pill ${s.c}">${s.t}</span></td></tr>`);
+
+    recs.push(rec);
+  });
+
+  $('r1-body').innerHTML=r1.join(''); $('r2-body').innerHTML=r2.join(''); $('msm-body').innerHTML=msm.join('');
+
+  /* ---- transporters ---- */
+  const DRV={cmaxu:['C<sub>max,u</sub>',E.cmaxu],inlet:['f<sub>u,p</sub>·I<sub>in,max</sub>',E.inlet!=null?E.fup*E.inlet:null],gut:['I<sub>gut</sub>',E.Igut]};
+  const tpRecs=[];
+  TRANSPORTERS.forEach(t=>{
+    const tr=$('tp-body').querySelector(`tr[data-k="${t.k}"]`);
+    const ic=pq(tr.querySelector('.tp-ic50').value);
+    const [dn,dv]=DRV[t.drive];
+    const r=(ic&&dv!=null&&ic.v>0)?dv/ic.v:null;
+    tr.querySelector('.tp-drive').innerHTML=dn;
+    tr.querySelector('.tp-i').textContent=fmtG(dv);
+    tr.querySelector('.tp-r').textContent=fmtG(r);
+    let out='<span class="pill p-na">not determined</span>';
+    if(r!=null){ const hit=r>=t.cut;
+      out=`<span class="pill ${hit?'p-high':'p-low'}">${hit?'cannot exclude':'risk excluded'}</span>`; }
+    tr.querySelector('.tp-out').innerHTML=out;
+    if(r!=null) tpRecs.push({k:t.k,ic:ic.v,r,cut:t.cut,hit:r>=t.cut,note:t.note});
+  });
+
+  /* ---- KPIs ---- */
+  const trig1=recs.filter(r=>r.R1!=null&&r.R1>=CFG.R1);
+  const trigG=recs.filter(r=>r.R1g!=null&&r.R1g>=CFG.R1gut);
+  const trig2=recs.filter(r=>r.R2!=null&&r.R2>=CFG.R2);
+  const worst=recs.filter(r=>r.AUCR!=null).sort((a,b)=>b.AUCR-a.AUCR)[0]||null;
+  const tested=recs.filter(r=>r.kiu!=null);
+  const ws=worst?strength(worst.AUCR):{t:'—',c:'p-na'};
+  $('kpis').innerHTML=[
+    ['CYPs assessed',`${tested.length} / ${CYPS.length}`,'reversible inhibition'],
+    ['R₁ ≥ '+CFG.R1, trig1.length? trig1.map(r=>r.cyp.replace('CYP','')).join(', ') : 'none', trig1.length?'clinical follow-up needed':'all excluded by basic model'],
+    ['R₁,gut ≥ '+CFG.R1gut, trigG.length? trigG.map(r=>r.cyp.replace('CYP','')).join(', ') : 'none','intestinal CYP3A, oral'],
+    ['R₂ ≥ '+CFG.R2, trig2.length? trig2.map(r=>r.cyp.replace('CYP','')).join(', ') : 'none','time-dependent inhibition'],
+    ['Worst-case AUCR', worst?fmt(worst.AUCR,2):'—', worst?`${worst.cyp.replace('-M',' (MDZ)').replace('-T',' (TST)')} / ${worst.victim}`:'MSM needs Ki + dose'],
+  ].map(([k,v,u])=>`<div class="kpi"><div class="k">${k}</div><div class="v" style="font-size:${String(v).length>9?'15px':'20px'}">${v}</div><div class="u">${u}</div></div>`).join('')
+   +`<div class="kpi"><div class="k">Predicted strength</div><div class="v" style="font-size:14px;padding-top:6px"><span class="pill ${ws.c}">${ws.t}</span></div><div class="u">from worst-case AUCR</div></div>`;
+
+  /* ---- flags ---- */
+  if(E.floored) flags.push(['','f'+'ᵤ'+',p was floored to '+CFG.fuFloorVal+' per FDA 2020 / ICH M12. The unfloored value would give proportionally lower R values — run that as a documented sensitivity analysis, not as the headline number.']);
+  if(!tested.length) flags.push(['bad','No K'+'ᵢ'+' could be derived. Enter IC'+'₅₀'+' values (or K'+'ᵢ'+' directly) for at least one CYP.']);
+  if(E.doseUmol==null) flags.push(['','Dose and MW not both entered, so I'+'gut'+', [I]'+'ₕ'+' and [I]'+'g'+' could not be calculated — R'+'₁'+',gut and the AUCR columns are blank. The systemic R'+'₁'+' column is still valid.']);
+  if(recs.every(r=>r.fumic===1) && tested.length)
+    flags.push(['','All f'+'ᵤ'+',mic set to 1. For a lipophilic compound this over-estimates the free inhibitor concentration in the incubation and therefore under-estimates K'+'ᵢ'+',u — i.e. it is not conservative. Add measured microsomal binding when it is available.']);
+  trig1.forEach(r=>flags.push(['bad',`${r.label}: R₁ = ${fmt(r.R1,3)} (Cₘₐₓ,u/Kᵢ,u = ${fmtG(r.ratio)}) exceeds the ${CFG.R1} cut-off, so reversible inhibition cannot be excluded from in vitro data alone. Predicted AUCR for ${r.victim} is ${r.AUCR!=null?fmt(r.AUCR,2):'not calculable without dose/MW'}${r.AUCR!=null&&r.AUCR<CFG.AUCR_hi?' — below 1.25, so the mechanistic static model does rule the interaction out.':'.'}`]));
+  trigG.forEach(r=>flags.push(['bad',`${r.label}: R₁,gut = ${fmt(r.R1g,1)} exceeds ${CFG.R1gut}. Intestinal CYP3A inhibition cannot be excluded for an oral dose of ${fmt(E.dose,0)} mg — note the guidance says this triggers follow-up even if CYP3A is not the most potently inhibited enzyme.`]));
+  recs.filter(r=>r.shift!=null&&r.shift>=CFG.shift&&r.R2==null).forEach(r=>
+    flags.push(['bad',`${r.label}: IC₅₀ shift of ${fmt(r.shift,2)}× (≥ ${CFG.shift}) indicates time-dependent inhibition, but R₂ cannot be calculated without KI and kinact. Request an inactivation-kinetics study from Pharmaron for this isoform.`]));
+  trig2.forEach(r=>flags.push(['bad',`${r.label}: R₂ = ${fmt(r.R2,2)} exceeds ${CFG.R2} (kobs ${fmtG(r.kobs)} min⁻¹ vs kdeg ${fmt(r.kdeg||0,5)}). TDI risk cannot be excluded; a mechanistic static or PBPK assessment, or a clinical study, is the next step.`]));
+  if(worst && worst.AUCR>=CFG.AUCR_strong)
+    flags.push(['bad',`Worst-case AUCR of ${fmt(worst.AUCR,2)} for ${worst.victim} falls in the strong-inhibitor range (≥ ${CFG.AUCR_strong}). This would carry labelling consequences — escalate to PBPK and discuss the clinical DDI study design early.`]);
+  else if(worst && worst.AUCR>=CFG.AUCR_hi)
+    flags.push(['',`Worst-case AUCR of ${fmt(worst.AUCR,2)} sits between ${CFG.AUCR_hi} and ${CFG.AUCR_strong} — a weak-to-moderate predicted inhibitor. A PBPK assessment is the usual way to refine this before committing to a clinical study.`]);
+  else if(worst && trig1.length)
+    flags.push(['ok',`Basic model triggers for ${trig1.map(r=>r.cyp).join(', ')}, but the mechanistic static model gives a worst-case AUCR of ${fmt(worst.AUCR,2)} — below ${CFG.AUCR_hi}. Per FDA 2020, a static-model AUCR < 1.25 is sufficient to avoid a clinical DDI study; document the model inputs.`]);
+  if(!trig1.length && !trig2.length && tested.length>=6 && E.doseUmol!=null)
+    flags.push(['ok',`No CYP triggers a basic-model cut-off at the projected exposure. Note the whole assessment scales with the projected Cₘₐₓ of ${fmtG(E.cmax)} µM — revisit it if the dose projection changes.`]);
+  tpRecs.filter(t=>t.hit).forEach(t=>flags.push(['bad',`${t.k}: [I]/IC₅₀ = ${fmtG(t.r)} meets the ≥ ${t.cut} cut-off (${t.note}). Transporter-mediated DDI cannot be excluded.`]));
+  $('flags').innerHTML=flags.map(([k,t])=>`<div class="flag ${k}">${t}</div>`).join('');
+
+  LAST={E,recs,tpRecs,trig1,trigG,trig2,worst,cid:$('cid').value.trim()||'(unnamed)',prog:$('prog').value};
+  buildSummary();
+  $('res-empty').classList.add('hide'); $('res-out').classList.remove('hide');
+  if(!quiet) tab('res');
+}
+
+/* ── settings tab ────────────────────────────────────────────────────── */
+function buildSettings(){
+  const F=[
+    ['R1','R₁ trigger (reversible, systemic)','FDA 2020 / ICH M12: 1.02'],
+    ['R1gut','R₁,gut trigger (intestinal CYP3A)','FDA 2020: 11'],
+    ['R2','R₂ trigger (TDI)','FDA 2020 / ICH M12: 1.25'],
+    ['AUCR_hi','AUCR — no-interaction ceiling','1.25'],
+    ['AUCR_mod','AUCR — weak/moderate boundary','2'],
+    ['AUCR_strong','AUCR — moderate/strong boundary','5'],
+    ['shift','IC₅₀ shift ratio that flags TDI','1.5 (internal convention)'],
+    ['tdiMult','k_obs multiplier × Cₘₐₓ,u','50 = FDA 2020, 5 = ICH M12'],
+    ['Qh','Q_h hepatic blood flow (L/min)','97 L/h/70 kg = 1.6167'],
+    ['Qen','Q_en enterocyte blood flow (L/min)','18 L/h/70 kg = 0.30'],
+    ['fuFloorVal','f_u,p floor value','0.01'],
+  ];
+  $('t-set').innerHTML = `<h2>Cut-offs and system constants</h2>
+    <div class="note" style="margin-top:0">Defaults are the published regulatory values. Change them only with a reason
+    you would be willing to write into a submission — and tell the rest of the team, because these are stored per
+    browser, not per file.</div>
+    <table style="margin-top:12px"><thead><tr><th>Parameter</th><th class="num">Value</th><th>Published default</th></tr></thead><tbody>
+    ${F.map(([k,l,d])=>`<tr><td>${l}</td>
+      <td class="num"><input data-k="${k}" type="number" step="any" value="${CFG[k]}" style="width:96px"></td>
+      <td class="hint">${d}</td></tr>`).join('')}
+    <tr><td>Apply the f<sub>u,p</sub> &lt; 1% floor</td>
+      <td class="num"><input type="checkbox" id="set-floor" ${CFG.fuFloor?'checked':''} style="width:auto"></td>
+      <td class="hint">Required by FDA 2020 and ICH M12 — untick only for an internal sensitivity analysis</td></tr>
+    </tbody></table>
+    <h2 style="margin-top:22px">Enzyme degradation rate constants (k<sub>deg</sub>, min⁻¹)</h2>
+    <table><thead><tr><th>Enzyme</th><th class="num">k<sub>deg</sub></th><th class="num">t½ (h)</th><th>Source</th></tr></thead><tbody>
+    ${CYPS.filter((c,i)=>i<7).map(c=>`<tr><td>${c.k.replace('-M','')}</td><td class="num">${c.kdeg}</td>
+      <td class="num">${fmt(0.693/c.kdeg/60,0)}</td><td class="hint">ICH M12 Table 6</td></tr>`).join('')}
+    <tr><td>CYP3A4 (intestinal)</td><td class="num">0.00048</td><td class="num">24</td><td class="hint">ICH M12 Table 6</td></tr>
+    </tbody></table>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn2" onclick="saveCfg()">Save as my defaults</button>
+      <button class="btn2" onclick="resetCfg()">Reset to published values</button>
+    </div><div class="status" id="set-st"></div>`;
+  $('t-set').querySelectorAll('input[data-k]').forEach(i=>i.addEventListener('change',()=>{
+    const v=parseFloat(i.value); if(isFinite(v)) CFG[i.dataset.k]=v; if(LAST) run(true); }));
+  $('set-floor').addEventListener('change',e=>{ CFG.fuFloor=e.target.checked; if(LAST) run(true); });
+}
+function saveCfg(){ try{ localStorage.setItem('ddi_cfg',JSON.stringify(CFG));
+  st('set-st','Saved in this browser.','ok'); }catch(e){ st('set-st','Could not save: '+e.message,'err'); } }
+function resetCfg(){ CFG=JSON.parse(JSON.stringify(CFG_DEFAULT)); CFG.tdiMult=GUIDE==='m12'?5:50;
+  try{localStorage.removeItem('ddi_cfg');}catch(e){} buildSettings(); if(LAST) run(true);
+  st('set-st','Reset to published regulatory values.','ok'); }
+
+/* ── tabs ────────────────────────────────────────────────────────────── */
+function tab(t){
+  ['panel','res','tp','set','ai','eq'].forEach(k=>{const e=$('t-'+k); if(e) e.classList.toggle('hide',k!==t);});
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+}
+
+/* ── summary text ────────────────────────────────────────────────────── */
+function summaryText(){
+  if(!LAST) return '';
+  const {E,recs,trig1,trigG,trig2,worst,tpRecs}=LAST;
+  const tested=recs.filter(r=>r.kiu!=null);
+  const nd=CYPS.filter(c=>!recs.find(r=>r.cyp===c.k&&r.kiu!=null)).map(c=>c.k.replace('CYP','').replace('-M',' (MDZ)').replace('-T',' (TST)'));
+  const gname=GUIDE==='m12'?'ICH M12':'FDA 2020 in vitro DDI guidance';
+  let s=`${LAST.cid} (${LAST.prog}) — CYP inhibition DDI risk assessment (${gname} basic and mechanistic static models).\n\n`;
+  s+=`Assessment based on a projected steady-state Cmax of ${fmtG(E.cmax)} µM and fu,p of ${E.fup}`;
+  s+=E.floored?` (floored to ${CFG.fuFloorVal} in line with the guidance because the measured value is below 1%)`:'';
+  s+=`, giving Cmax,u = ${fmtG(E.cmaxu)} µM`;
+  if(E.dose!=null&&E.mw) s+=` at the highest anticipated dose of ${fmt(E.dose,0)} mg (Igut = ${fmtG(E.Igut)} µM, unbound hepatic inlet [I]h = ${fmtG(E.Ih)} µM)`;
+  s+=`. Ki was ${KIMODE==='half'?'taken as IC50/2 (substrate at Km)':'taken as equal to IC50'} and corrected for microsomal binding where measured.\n\n`;
+
+  s+=`Reversible inhibition: `;
+  if(!tested.length) s+=`no isoform could be assessed — insufficient data.\n`;
+  else if(!trig1.length) s+=`R1 was below the ${CFG.R1} cut-off for all ${tested.length} isoforms assessed (highest R1 = ${fmt(Math.max(...tested.filter(r=>r.R1!=null).map(r=>r.R1)),3)}), so the risk of clinically relevant reversible CYP inhibition can be excluded on the basis of these in vitro data.\n`;
+  else s+=`R1 exceeded the ${CFG.R1} cut-off for ${trig1.map(r=>`${r.label} (R1 = ${fmt(r.R1,3)}, Cmax,u/Ki,u = ${fmtG(r.ratio)})`).join('; ')}. The risk of reversible inhibition of ${trig1.length>1?'these enzymes':'this enzyme'} cannot be excluded from the basic model alone.\n`;
+  if(trigG.length) s+=`Intestinal CYP3A: R1,gut = ${trigG.map(r=>fmt(r.R1g,1)).join(', ')}, above the ${CFG.R1gut} cut-off, so intestinal CYP3A inhibition cannot be excluded for the oral route.\n`;
+  else if(recs.some(r=>r.R1g!=null)) s+=`Intestinal CYP3A: R1,gut = ${recs.filter(r=>r.R1g!=null).map(r=>fmt(r.R1g,1)).join(', ')}, below the ${CFG.R1gut} cut-off.\n`;
+
+  s+=`\nTime-dependent inhibition: `;
+  const shifts=recs.filter(r=>r.shift!=null);
+  if(!shifts.length && !trig2.length) s+=`not determined.\n`;
+  else{
+    const pos=shifts.filter(r=>r.shift>=CFG.shift);
+    if(pos.length) s+=`IC50 shift ratios of ${pos.map(r=>`${fmt(r.shift,2)}× (${r.label})`).join(', ')} indicate a time-dependent component. `;
+    else if(shifts.length) s+=`IC50 shift ratios were below ${CFG.shift}× for all isoforms tested, giving no evidence of time-dependent inhibition. `;
+    if(trig2.length) s+=`R2 exceeded ${CFG.R2} for ${trig2.map(r=>`${r.label} (R2 = ${fmt(r.R2,2)})`).join('; ')}, so TDI risk cannot be excluded. `;
+    else if(recs.some(r=>r.R2!=null)) s+=`Where KI and kinact were available, R2 remained below ${CFG.R2}. `;
+    else if(pos.length) s+=`KI and kinact have not been determined, so R2 could not be calculated — an inactivation-kinetics study is required to close this out. `;
+    s+='\n';
+  }
+
+  if(worst){
+    const ws=strength(worst.AUCR);
+    s+=`\nMechanistic static model (inhibition mechanisms only, induction term set to 1): the highest predicted AUCR is ${fmt(worst.AUCR,2)} for ${worst.victim} via ${worst.label}, which classifies the compound as ${ws.t} at this projected exposure. `;
+    s+= worst.AUCR<CFG.AUCR_hi
+      ? `As the predicted AUCR is below ${CFG.AUCR_hi}, the static model supports excluding a clinically relevant interaction despite the basic-model trigger.\n`
+      : `As the predicted AUCR is at or above ${CFG.AUCR_hi}, a PBPK assessment or a clinical DDI study with a sensitive index substrate is indicated.\n`;
+  }
+  if(tpRecs && tpRecs.length){
+    const hits=tpRecs.filter(t=>t.hit);
+    s+=`\nTransporters: ${hits.length? hits.map(t=>`${t.k} ([I]/IC50 = ${fmtG(t.r)}, cut-off ${t.cut})`).join('; ')+' cannot be excluded.' : `all ${tpRecs.length} transporters assessed fell below their basic-model cut-offs.`}\n`;
+  }
+  if(nd.length) s+=`\nInsufficient data: ${nd.join(', ')} — not assessed in this analysis.\n`;
+  s+=`\nBasic models are intentionally conservative and are used to exclude risk, not to quantify it. A trigger means an in vivo interaction cannot be ruled out from in vitro data, not that one is expected.`;
+  return s;
+}
+function buildSummary(){
+  const t=summaryText();
+  $('tpl-out').innerHTML=`<div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:var(--ink)">${t.replace(/</g,'&lt;')}</div>
+    <button class="btn2" style="margin-top:12px" onclick="copySummary()">Copy this text</button>
+    <div class="status" id="sum-st"></div>`;
+}
+function copySummary(){ navigator.clipboard.writeText(summaryText())
+  .then(()=>st('sum-st','Copied.','ok')).catch(e=>st('sum-st','Copy failed: '+e.message,'err')); }
+
+/* ── export ──────────────────────────────────────────────────────────── */
+function resultsTsv(){
+  if(!LAST) return '';
+  const {E,recs,tpRecs}=LAST;
+  const L=[['Compound',LAST.cid],['Program',LAST.prog],['Guidance',GUIDE==='m12'?'ICH M12':'FDA 2020'],
+    ['Ki convention',KIMODE==='half'?'IC50/2':'IC50'],['MW',E.mw],['Dose (mg)',E.dose],
+    ['Cmax (uM)',fmtG(E.cmax)],['fu,p used',E.fup],['fu,p floored',E.floored?'yes':'no'],
+    ['Cmax,u (uM)',fmtG(E.cmaxu)],['Igut (uM)',fmtG(E.Igut)],['[I]h (uM)',fmtG(E.Ih)],['[I]g (uM)',fmtG(E.Ig)],[''],
+    ['CYP','IC50','fu,mic','Ki,u (uM)','Cmax,u/Ki,u','R1','R1,gut','IC50 shift','KI,u','kinact','kobs','kdeg','R2','Victim','fm','Fg','AUCR']];
+  recs.forEach(r=>{
+    const c=CYPS.find(x=>x.k===r.cyp);
+    L.push([r.label, r.ic?(r.ic.q+r.ic.v):'', r.fumic, fmtG(r.kiu), fmtG(r.ratio),
+      r.R1!=null?fmt(r.R1,4):'', r.R1g!=null?fmt(r.R1g,2):'', r.shift!=null?fmt(r.shift,2):'',
+      fmtG(r.KIu), r.kinact!=null?r.kinact:'', fmtG(r.kobs), c.kdeg, r.R2!=null?fmt(r.R2,4):'',
+      r.victim, r.fm, r.fgv, r.AUCR!=null?fmt(r.AUCR,3):'']);
+  });
+  if(tpRecs.length){
+    L.push([''],['Transporter','IC50','[I]/IC50','Cut-off','Outcome']);
+    tpRecs.forEach(t=>L.push([t.k,t.ic,fmtG(t.r),t.cut,t.hit?'cannot exclude':'risk excluded']));
+  }
+  return L.map(r=>r.join('\t')).join('\n');
+}
+function copyTsv(){ navigator.clipboard.writeText(resultsTsv())
+  .then(()=>st('copy-st','Copied as TSV.','ok')).catch(e=>st('copy-st','Copy failed: '+e.message,'err')); }
+function dlCsv(){
+  const csv=resultsTsv().split('\n').map(r=>r.split('\t').map(c=>/[",]/.test(String(c))?'"'+String(c).replace(/"/g,'""')+'"':c).join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`DDI_${(LAST&&LAST.cid||'compound').replace(/[^\w-]/g,'_')}.csv`; a.click();
+  st('copy-st','CSV downloaded.','ok');
+}
+
+/* ── Claude API ──────────────────────────────────────────────────────── */
+let AI=JSON.parse(localStorage.getItem('dmpk_ai')||'{"key":"","model":"claude-sonnet-5","remember":true}');
+function paintKey(){ $('ai-key').value=AI.key||''; $('ai-model').value=AI.model||'claude-sonnet-5';
+  $('ai-remember').checked=AI.remember!==false;
+  $('ai-tag').textContent=AI.key?'ready':'off'; $('ai-tag').className='tag'+(AI.key?' on':''); }
+function saveKey(){ AI.key=$('ai-key').value.trim(); AI.model=$('ai-model').value.trim()||'claude-sonnet-5';
+  AI.remember=$('ai-remember').checked;
+  try{ localStorage.setItem('dmpk_ai',JSON.stringify(AI.remember?AI:{key:'',model:AI.model,remember:false})); }catch(e){}
+  paintKey(); st('ai-st',AI.key?'Saved.':'Enter a key first.',AI.key?'ok':'warn'); }
+function clearKey(){ AI={key:'',model:AI.model,remember:true}; try{localStorage.removeItem('dmpk_ai');}catch(e){}
+  paintKey(); st('ai-st','Key cleared.','ok'); }
+
+async function askClaude(){
+  if(!LAST){ st('ai-st','Run a calculation first.','warn'); return; }
+  const key=($('ai-key').value||AI.key||'').trim();
+  if(!key){ st('ai-st','Enter an Anthropic API key.','warn'); return; }
+  st('ai-st','Asking Claude…','info');
+  const {E,recs,tpRecs}=LAST;
+  const payload={
+    compound:LAST.cid, program:LAST.prog, guidance:GUIDE==='m12'?'ICH M12':'FDA 2020',
+    ki_convention:KIMODE==='half'?'Ki = IC50/2':'Ki = IC50',
+    exposure:{Cmax_uM:+fmtG(E.cmax), fu_p_used:E.fup, fu_p_floored:E.floored,
+      Cmax_u_uM:E.cmaxu, dose_mg:E.dose, Igut_uM:E.Igut, I_h_uM:E.Ih, I_g_uM:E.Ig},
+    cutoffs:{R1:CFG.R1,R1gut:CFG.R1gut,R2:CFG.R2,AUCR_no_interaction:CFG.AUCR_hi},
+    cyps:recs.map(r=>({cyp:r.label,IC50:r.ic?r.ic.q+r.ic.v:null,fu_mic:r.fumic,Ki_u:r.kiu,
+      R1:r.R1,R1_gut:r.R1g,IC50_shift:r.shift,R2:r.R2,victim:r.victim,fm:r.fm,AUCR:r.AUCR})),
+    transporters:tpRecs,
+  };
+  const sys=`You are a DMPK scientist at a drug discovery biotech writing the DDI section of a risk assessment memo.
+You have been given DDI results ALREADY calculated by a validated tool. Do not recalculate and do not contradict any number.
+
+Your task: write the CYP/transporter DDI risk assessment paragraph(s).
+
+Rules:
+- Use regulatory language consistent with the guidance named in the input (FDA 2020 in vitro DDI guidance or ICH M12).
+- Always state the R value or AUCR that justifies each conclusion, with the cut-off it is compared against.
+- Frame basic-model outcomes correctly: exceeding a cut-off means the risk "cannot be excluded from in vitro data", NOT that a DDI will occur.
+- If a CYP has null values, write "insufficient data" - never infer or estimate it.
+- Note explicitly if fu_p_floored is true, and say that the floor is required by the guidance.
+- Structure: one paragraph on reversible inhibition, one on TDI, one on the mechanistic static model, one on transporters if any were tested. No bullet points, no headings.
+- Do NOT make go/no-go or progression recommendations, and do not recommend specific clinical study designs beyond what the guidance itself states.
+- Do not speculate about chemical structure; you have not been shown one.`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:($('ai-model').value||'claude-sonnet-5').trim(),max_tokens:1400,system:sys,
+        messages:[{role:'user',content:'DDI RESULTS (JSON):\n'+JSON.stringify(payload,null,1)}]})});
+    if(!res.ok){ const t=await res.text(); throw new Error('HTTP '+res.status+' — '+t.slice(0,300)); }
+    const d=await res.json();
+    const txt=(d.content||[]).map(c=>c.text||'').join('\n').trim();
+    $('ai-out').innerHTML=`<div class="card" style="margin:0;background:var(--panel2)">
+      <h2>Claude draft <span class="hint">review before it goes in a memo</span></h2>
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.65">${txt.replace(/</g,'&lt;')}</div>
+      <button class="btn2" style="margin-top:12px" onclick="navigator.clipboard.writeText(${JSON.stringify(txt)})">Copy</button></div>`;
+    st('ai-st','Done.','ok');
+  }catch(e){
+    st('ai-st','Failed: '+e.message+(/Failed to fetch/i.test(e.message)?' — likely an invalid key or a network block.':''),'err');
+  }
+}
+
+/* ── boot ────────────────────────────────────────────────────────────── */
+buildPanel(); buildVictim(); buildTp(); buildSettings(); paintGuide(); paintKey(); tab('panel');
+['mw','dose','cmax','cmaxu','fup','rb','fa','fg','ka'].forEach(id=>{
+  const e=$(id); if(e) e.addEventListener('change',()=>{ if(LAST) run(true); }); });
+$('panel-body').addEventListener('change',()=>{ if(LAST) run(true); });
+$('victim-body').addEventListener('change',()=>{ if(LAST) run(true); });
+</script>
+</body>
+</html>
