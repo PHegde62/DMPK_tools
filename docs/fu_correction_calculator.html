@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fu,mic Correction Calculator — IVIVE of Hepatic Clearance</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#182430; --panel2:#1f2e3c; --ink:#e8eef4; --muted:#9fb0c0;
+    --accent:#4fb0ff; --accent2:#5fd0a0; --warn:#f0a24f; --line:#2a3b4c; --good:#5fd0a0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.5}
+  header{padding:22px 26px;border-bottom:1px solid var(--line);background:var(--panel)}
+  h1{font-size:20px;margin:0 0 4px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:22px 26px;max-width:1200px}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card h2{font-size:14px;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select{width:100%;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);
+               border-radius:8px;color:var(--ink);font-size:14px}
+  input:focus,select:focus{outline:1px solid var(--accent)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .out{background:var(--panel2);border-radius:10px;padding:14px;margin-top:8px}
+  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .metric:last-child{border-bottom:none}
+  .metric .v{font-variant-numeric:tabular-nums;font-weight:600}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600}
+  .pill.good{background:rgba(95,208,160,.15);color:var(--good)}
+  .pill.warn{background:rgba(240,162,79,.15);color:var(--warn)}
+  canvas{width:100%;height:auto;background:var(--panel2);border-radius:10px}
+  .muted{color:var(--muted);font-size:12px}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--accent);font-size:13px}
+  .fm{font-size:13px;color:var(--muted)}
+  .fm b{color:var(--ink)}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:700px){.grid3{grid-template-columns:1fr}}
+  .mini{font-size:12px}
+  .mini .n{font-weight:600;color:var(--ink)}
+  .tag{font-size:11px;color:var(--muted)}
+  .eqn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);
+       background:var(--panel2);padding:8px 10px;border-radius:8px;margin-top:6px}
+  footer{padding:16px 26px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+  button.link{background:none;border:1px solid var(--line);color:var(--accent);border-radius:8px;
+              padding:6px 10px;cursor:pointer;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>fu,mic Correction Calculator — IVIVE of Hepatic Clearance</h1>
+  <p>Well-stirred model · CL<sub>int,u</sub> = CL<sub>int,app</sub> / fu,mic · Pillar 1 / Step 1 · P. Hegde</p>
+</header>
+
+<div class="wrap">
+  <!-- INPUTS -->
+  <div class="card">
+    <h2>Inputs</h2>
+    <label>Species</label>
+    <select id="species">
+      <option value="rat" selected>Rat</option>
+      <option value="human">Human</option>
+      <option value="mouse">Mouse</option>
+      <option value="dog">Dog</option>
+    </select>
+
+    <div class="row">
+      <div>
+        <label>CL<sub>int,app</sub> (µL/min/mg)</label>
+        <input id="clint" type="number" value="50" step="1">
+      </div>
+      <div>
+        <label>fu,mic (measured)</label>
+        <input id="fumic" type="number" value="0.15" step="0.01" min="0.001" max="1">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>fu,plasma</label>
+        <input id="fup" type="number" value="0.02" step="0.01" min="0.0001" max="1">
+      </div>
+      <div>
+        <label>Blood : plasma (B:P)</label>
+        <input id="bp" type="number" value="1.0" step="0.1" min="0.1">
+      </div>
+    </div>
+
+    <label>Observed in-vivo CL (mL/min/kg) — optional</label>
+    <input id="obs" type="number" value="11" step="0.1">
+
+    <div class="eqn">
+      CL<sub>int,u</sub> = (CL<sub>int,app</sub> × MPPGL × liver/kg / 1000) ÷ fu,mic<br>
+      CL<sub>h</sub> = Q<sub>h</sub>·fu<sub>b</sub>·CL<sub>int,u</sub> / (Q<sub>h</sub> + fu<sub>b</sub>·CL<sub>int,u</sub>),
+      &nbsp; fu<sub>b</sub> = fu,p / (B:P)
+    </div>
+
+    <details>
+      <summary>Predict fu,mic from lipophilicity (Austin 2002)</summary>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>logP (base) or logD<sub>7.4</sub> (acid/neutral)</label>
+          <input id="logx" type="number" value="3.0" step="0.1">
+        </div>
+        <div>
+          <label>[microsomes] (mg/mL)</label>
+          <input id="cmic" type="number" value="1.0" step="0.1">
+        </div>
+      </div>
+      <div class="out" style="margin-top:8px">
+        <div class="metric"><span>Predicted fu,mic</span><span class="v" id="fumic_pred">–</span></div>
+        <button class="link" id="usePred">Use this value ↑</button>
+      </div>
+    </details>
+  </div>
+
+  <!-- OUTPUTS -->
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <h2>Result</h2>
+      <div class="grid3">
+        <div class="out">
+          <div class="tag">Scaled CL<sub>int</sub> (in vivo)</div>
+          <div class="metric"><span class="muted">no correction</span><span class="v" id="clint_scaled">–</span></div>
+          <div class="metric"><span class="muted">fu,mic corrected</span><span class="v" id="clint_corr">–</span></div>
+          <div class="tag">mL/min/kg</div>
+        </div>
+        <div class="out">
+          <div class="tag">Predicted CL<sub>h</sub></div>
+          <div class="metric"><span class="muted">no correction</span><span class="v" id="clh_uncorr">–</span></div>
+          <div class="metric"><span class="muted">corrected</span><span class="v" id="clh_corr">–</span></div>
+          <div class="tag">mL/min/kg</div>
+        </div>
+        <div class="out">
+          <div class="tag">Fold error (obs / pred)</div>
+          <div class="metric"><span class="muted">no correction</span><span class="v" id="fe_uncorr">–</span></div>
+          <div class="metric"><span class="muted">corrected</span><span class="v" id="fe_corr">–</span></div>
+          <div id="verdict" class="tag">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>fu,mic sweep — impact on predicted CL<sub>h</sub></h2>
+      <canvas id="plot" width="820" height="380"></canvas>
+      <p class="muted">Curve holds CL<sub>int,app</sub> and fu<sub>b</sub> fixed and varies fu,mic from 0.01→1.0.
+      The dashed marker is your current fu,mic; the grey line at fu,mic = 1 is "no correction".</p>
+    </div>
+
+    <div class="card">
+      <h2>Five reasons fu corrections fail</h2>
+      <div class="fm">
+        <p><b>1. Double-counting or omitting fu,mic.</b> Divide scaled CL<sub>int</sub> by fu,mic once, then apply fu<sub>b</sub> in the well-stirred model. Applying plasma binding twice — or forgetting fu,mic — is the most common error. <span class="tag">Obach 1999</span></p>
+        <p><b>2. Predicting fu,mic from logP/logD outside the model's range.</b> The Austin model mis-predicts strongly bound bases and out-of-space compounds; CL<sub>int,u</sub> scales inversely with fu,mic, so a several-fold fu,mic error becomes a several-fold CL error. <span class="tag">Austin 2002</span></p>
+        <p><b>3. Non-linear / concentration-dependent binding.</b> fu,mic is only constant when [S] ≪ Km and protein is in the validated range; at high substrate or protein loads the single-value correction breaks. <span class="tag">Austin 2002 · Hallifax</span></p>
+        <p><b>4. Wrong reference fluid.</b> Mixing fu,plasma with a blood-based clearance corrupts fu<sub>b</sub> = fu,p/(B:P) — a large systematic error for red-cell partitioners. <span class="tag">Rowland &amp; Tozer</span></p>
+        <p><b>5. Correcting binding while missing the real cause.</b> If the true gap is transporter/AO/UGT/biliary clearance or an in-vitro artefact, a perfect fu,mic correction just makes an incomplete model look precise. <span class="tag">Poulin 2024</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Runs entirely in your browser — no data leaves this page. Save this file anywhere and double-click to open,
+  or host it on GitHub Pages for a shareable link. Illustrative defaults; swap in real compound data.
+</footer>
+
+<script>
+const SCALARS = {
+  rat:   {Qh:55.2, MPPGL:45, liver:40},
+  human: {Qh:20.7, MPPGL:32, liver:21},
+  mouse: {Qh:90.0, MPPGL:45, liver:55},
+  dog:   {Qh:30.9, MPPGL:45, liver:32},
+};
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value);
+
+function scaleClint(clintApp, sp){ const s=SCALARS[sp]; return clintApp*s.MPPGL*s.liver/1000; }
+function clh(clintInVivo, fub, sp){ const Q=SCALARS[sp].Qh; return (Q*fub*clintInVivo)/(Q+fub*clintInVivo); }
+function predFumic(logX, cmic){
+  const logRatio = 0.072*logX*logX + 0.067*logX - 1.126;
+  let r = Math.pow(10, logRatio) * cmic;
+  return 1/(1+r);
+}
+function fmt(x, d=2){ return (isFinite(x)? x.toFixed(d) : "–"); }
+
+function compute(){
+  const sp=$("species").value;
+  const clintApp=num("clint"), fumic=Math.min(Math.max(num("fumic"),1e-4),1),
+        fup=num("fup"), bp=num("bp"), obs=num("obs");
+  const fub = fup/bp;
+  const scaled = scaleClint(clintApp, sp);
+  const corr = scaled/fumic;
+  const clhU = clh(scaled, fub, sp);
+  const clhC = clh(corr, fub, sp);
+  $("clint_scaled").textContent=fmt(scaled,1);
+  $("clint_corr").textContent=fmt(corr,1);
+  $("clh_uncorr").textContent=fmt(clhU,2);
+  $("clh_corr").textContent=fmt(clhC,2);
+  if(isFinite(obs) && obs>0){
+    const feU=obs/clhU, feC=obs/clhC;
+    $("fe_uncorr").textContent=fmt(feU,2)+"×";
+    $("fe_corr").textContent=fmt(feC,2)+"×";
+    const better = Math.abs(Math.log(feC)) < Math.abs(Math.log(feU));
+    const within = Math.abs(Math.log(feC)) < Math.log(2);
+    $("verdict").innerHTML = (better?'<span class="pill good">correction moved closer</span>':'<span class="pill warn">correction did not help</span>')
+      + (within?' <span class="pill good">within 2-fold</span>':'');
+  } else {
+    $("fe_uncorr").textContent="–"; $("fe_corr").textContent="–"; $("verdict").textContent="enter observed CL to compare";
+  }
+  // fu,mic predictor
+  $("fumic_pred").textContent = fmt(predFumic(num("logx"), num("cmic")),3);
+  drawPlot(sp, clintApp, fub, fumic, obs);
+}
+
+function drawPlot(sp, clintApp, fub, fumicNow, obs){
+  const c=$("plot"), ctx=c.getContext("2d");
+  const W=c.width, H=c.height, mL=60, mR=20, mT=20, mB=44;
+  ctx.clearRect(0,0,W,H);
+  // data
+  const N=200, xs=[], ys=[];
+  const scaled=scaleClint(clintApp,sp);
+  let ymax=0;
+  for(let i=0;i<N;i++){ const f=0.01+(1-0.01)*i/(N-1); const y=clh(scaled/f,fub,sp); xs.push(f); ys.push(y); if(y>ymax)ymax=y; }
+  if(isFinite(obs)&&obs>ymax) ymax=obs;
+  ymax*=1.08;
+  const X=f=> mL+(f-0.01)/(1-0.01)*(W-mL-mR);
+  const Y=y=> H-mB-(y/ymax)*(H-mT-mB);
+  // grid + axes
+  ctx.strokeStyle="#2a3b4c"; ctx.fillStyle="#9fb0c0"; ctx.font="11px sans-serif"; ctx.lineWidth=1;
+  for(let g=0;g<=5;g++){ const yy=g/5*ymax; const py=Y(yy); ctx.beginPath();ctx.moveTo(mL,py);ctx.lineTo(W-mR,py);ctx.stroke();
+    ctx.fillText(yy.toFixed(0), 8, py+3); }
+  for(let g=0;g<=5;g++){ const xx=0.01+g/5*(1-0.01); const px=X(xx); ctx.fillText(xx.toFixed(2), px-8, H-mB+16); }
+  ctx.fillText("fu,mic", (W)/2-14, H-8);
+  ctx.save(); ctx.translate(14,H/2+30); ctx.rotate(-Math.PI/2); ctx.fillText("CLh (mL/min/kg)",0,0); ctx.restore();
+  // no-correction ref line (fu,mic=1)
+  ctx.strokeStyle="#5a6b7c"; ctx.setLineDash([4,4]); ctx.beginPath();ctx.moveTo(X(1),mT);ctx.lineTo(X(1),H-mB);ctx.stroke(); ctx.setLineDash([]);
+  // curve
+  ctx.strokeStyle="#4fb0ff"; ctx.lineWidth=2.5; ctx.beginPath();
+  xs.forEach((f,i)=>{ const px=X(f),py=Y(ys[i]); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.stroke();
+  // observed line
+  if(isFinite(obs)&&obs>0){ ctx.strokeStyle="#5fd0a0"; ctx.setLineDash([6,3]); ctx.beginPath();ctx.moveTo(mL,Y(obs));ctx.lineTo(W-mR,Y(obs));ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="#5fd0a0"; ctx.fillText("observed", W-mR-58, Y(obs)-5); }
+  // current fu,mic marker
+  const yNow=clh(scaled/fumicNow,fub,sp);
+  ctx.fillStyle="#f0a24f"; ctx.beginPath(); ctx.arc(X(fumicNow),Y(yNow),5,0,7); ctx.fill();
+  ctx.strokeStyle="#f0a24f"; ctx.setLineDash([3,3]); ctx.beginPath();ctx.moveTo(X(fumicNow),Y(yNow));ctx.lineTo(X(fumicNow),H-mB);ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillText("your fu,mic", X(fumicNow)+8, Y(yNow)-6);
+}
+
+$("usePred").addEventListener("click",()=>{ $("fumic").value=predFumic(num("logx"),num("cmic")).toFixed(3); compute(); });
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",compute));
+compute();
+</script>
+</body>
+</html>
