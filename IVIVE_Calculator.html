@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVIVE Calculator — Genesis DMPK</title>
+<style>
+:root{
+  --bg:#f4f7fb; --panel:#fff; --panel2:#f7f9fc; --ink:#182430; --muted:#647385;
+  --line:#e2e8f0; --line2:#eef2f7; --accent:#2563eb; --accent2:#0f9d6b; --warn:#c2790a; --bad:#dc2626;
+  --chip:#eef3fa; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --shadow:0 1px 3px rgba(16,32,64,.06),0 1px 2px rgba(16,32,64,.04);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.5;font-size:14px}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 20px 80px}
+header h1{margin:0 0 4px;font-size:23px;letter-spacing:.2px}
+header p{margin:0;color:var(--muted);font-size:13px;max-width:900px}
+.grid{display:grid;grid-template-columns:420px 1fr;gap:20px;margin-top:20px}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{font-size:12px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+label{display:block;font-size:12.5px;margin:11px 0 4px;font-weight:600}
+.hint{font-weight:400;color:var(--muted);font-size:11.5px}
+input,select,textarea{width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:8px 9px;font-size:13.5px;outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+textarea{resize:vertical;min-height:64px;font-family:var(--mono);font-size:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.seg button{flex:1 1 auto;background:#fff;border:1px solid var(--line);color:var(--muted);
+  padding:7px 6px;border-radius:8px;font-size:12.5px;cursor:pointer;min-width:58px;transition:.12s}
+.seg button:hover{border-color:#c7d2e0}
+.seg button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.go{margin-top:16px;width:100%;background:var(--accent);border:none;color:#fff;font-weight:700;
+  font-size:15px;padding:12px;border-radius:11px;cursor:pointer;box-shadow:var(--shadow)}
+.go:hover{background:#1d4fd8}
+.btn2{background:#fff;border:1px solid var(--line);color:var(--accent);font-weight:600;font-size:12.5px;
+  padding:8px 11px;border-radius:9px;cursor:pointer}
+.btn2:hover{border-color:var(--accent);background:#f5f8ff}
+details{border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin-top:12px;overflow:hidden}
+details>summary{cursor:pointer;padding:10px 13px;font-weight:700;font-size:12.5px;list-style:none;display:flex;align-items:center;gap:8px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:'▸';color:var(--muted);font-size:11px}
+details[open]>summary::before{content:'▾'}
+details>summary .tag{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--muted);padding:2px 8px;border-radius:20px;letter-spacing:.4px}
+details>summary .tag.on{background:var(--accent2)}
+.dbody{padding:0 13px 13px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  padding:6px 8px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line2);vertical-align:middle}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:12px}
+tbody tr:hover td{background:#fafcff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:var(--panel2)}
+.kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:21px;font-weight:700;font-family:var(--mono);margin-top:3px;line-height:1.15}
+.kpi .u{font-size:11px;color:var(--muted);font-weight:400;font-family:inherit}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.3px}
+.p-low{background:#e9f8f0;color:#0b6b46}.p-mod{background:#fff6e6;color:#8a5504}.p-high{background:#fdeaea;color:#a02020}
+.p-na{background:#eef2f7;color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.55}
+.status{margin-top:10px;font-size:12.5px;border-radius:8px;padding:9px 11px;display:none}
+.status.show{display:block}
+.status.ok{background:#e9f8f0;border:1px solid #b8e6cd;color:#0b6b46}
+.status.err{background:#fdeaea;border:1px solid #f4c4c4;color:#a02020}
+.status.info{background:#eef4ff;border:1px solid #cfe0ff;color:#204a99}
+.status.warn{background:#fff6e6;border:1px solid #f0dcb4;color:#8a5504}
+.flag{border-left:3px solid var(--warn);background:#fffaf0;padding:8px 11px;border-radius:0 8px 8px 0;font-size:12.5px;margin-top:8px}
+.flag.bad{border-left-color:var(--bad);background:#fef6f6}
+.flag.ok{border-left-color:var(--accent2);background:#f3fbf7}
+code{background:var(--chip);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11.5px}
+.eq{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--chip);padding:7px 9px;border-radius:7px;margin:6px 0;line-height:1.7;overflow-x:auto}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.sfrow{display:grid;grid-template-columns:74px repeat(5,1fr);gap:6px;align-items:center;margin-bottom:5px}
+.sfrow input{padding:5px 6px;font-size:12px;font-family:var(--mono);text-align:right}
+.sfrow .lbl{font-size:11px;color:var(--muted);font-weight:700}
+.sfhdr{font-size:11px;font-weight:700;text-align:center;color:var(--ink)}
+.warnbox{font-size:11.5px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:10px}
+.tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tabs button{background:none;border:none;border-bottom:2px solid transparent;padding:8px 11px;font-size:12.5px;
+  color:var(--muted);cursor:pointer;font-family:inherit}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>IVIVE Calculator</h1>
+  <p>In vitro CL<sub>int</sub> → predicted hepatic clearance, extraction ratio and oral F, with species comparison and IVIVE
+  performance check. Well-stirred, parallel-tube and dispersion models side by side. All scaling factors editable.</p>
+</header>
+
+<div class="grid">
+
+<!-- ══════════════ LEFT: INPUTS ══════════════ -->
+<div>
+  <div class="card">
+    <h2>1 · Compound &amp; matrix</h2>
+
+    <div class="row">
+      <div>
+        <label>Compound ID</label>
+        <input id="cid" placeholder="GEN-00000" value="">
+      </div>
+      <div>
+        <label>Program</label>
+        <select id="prog">
+          <option>PC-006</option><option>PC-017</option><option>PC-018</option><option>—</option>
+        </select>
+      </div>
+    </div>
+
+    <label>In vitro system</label>
+    <div class="seg" id="seg-sys">
+      <button data-v="mic" class="active">Liver microsomes</button>
+      <button data-v="hep">Hepatocytes</button>
+    </div>
+
+    <label>CL<sub>int</sub> input mode</label>
+    <div class="seg" id="seg-mode">
+      <button data-v="clint" class="active">CL<sub>int</sub> direct</button>
+      <button data-v="t12">from t½</button>
+    </div>
+
+    <div id="blk-clint">
+      <label>In vitro CL<sub>int</sub> <span class="hint" id="clint-u">(µL/min/mg protein)</span></label>
+      <input id="clint" type="number" step="any" placeholder="e.g. 25">
+    </div>
+
+    <div id="blk-t12" class="hide">
+      <div class="row">
+        <div>
+          <label>In vitro t½ <span class="hint">(min)</span></label>
+          <input id="t12" type="number" step="any" placeholder="e.g. 45">
+        </div>
+        <div>
+          <label id="dens-lbl">Protein conc. <span class="hint">(mg/mL)</span></label>
+          <input id="dens" type="number" step="any" value="0.5">
+        </div>
+      </div>
+      <div class="sub">CL<sub>int</sub> = (0.693 / t½) × 1000 / density — the standard Pharmaron calculation.</div>
+    </div>
+
+    <div class="row" style="margin-top:4px">
+      <div>
+        <label>f<sub>u,inc</sub> <span class="hint">(mic/hep binding)</span></label>
+        <input id="fuinc" type="number" step="any" min="0" max="1" value="1" placeholder="0–1">
+      </div>
+      <div>
+        <label>f<sub>u,plasma</sub></label>
+        <input id="fup" type="number" step="any" min="0" max="1" value="1" placeholder="0–1">
+      </div>
+    </div>
+    <div class="sub">Enter as fractions (1% unbound = 0.01). Leave both at 1 for an uncorrected prediction.</div>
+
+    <div class="row" style="margin-top:4px">
+      <div>
+        <label>R<sub>b</sub> <span class="hint">blood:plasma</span></label>
+        <input id="rb" type="number" step="any" value="1" placeholder="1">
+      </div>
+      <div>
+        <label>F<sub>a</sub> · F<sub>g</sub> <span class="hint">for oral F</span></label>
+        <input id="fafg" type="number" step="any" min="0" max="1" value="1" placeholder="1">
+      </div>
+    </div>
+
+    <details>
+      <summary>Estimate f<sub>u,inc</sub> from lipophilicity <span class="tag">optional</span></summary>
+      <div class="dbody">
+        <div class="row3">
+          <div>
+            <label>logP / logD<sub>7.4</sub></label>
+            <input id="fu-logp" type="number" step="any" placeholder="e.g. 3.2">
+          </div>
+          <div>
+            <label>Method</label>
+            <select id="fu-method">
+              <option value="hh">Halifax–Houston</option>
+              <option value="austin">Austin (bases: logP)</option>
+            </select>
+          </div>
+          <div>
+            <label>Protein <span class="hint">mg/mL</span></label>
+            <input id="fu-conc" type="number" step="any" value="0.5">
+          </div>
+        </div>
+        <button class="btn2" style="margin-top:10px" onclick="estFu()">Estimate &amp; fill f<sub>u,inc</sub></button>
+        <div class="status" id="fu-st"></div>
+        <div class="warnbox">Predicted f<sub>u,inc</sub> is an <b>estimate only</b> (in silico QSAR). Use a measured microsome/hepatocyte
+        binding value whenever one exists — flag it in the output as predicted if you use this.</div>
+      </div>
+    </details>
+
+    <button class="go" onclick="run()">Calculate</button>
+    <div class="status" id="main-st"></div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Species &amp; observed in vivo CL <span class="hint">(optional — enables IVIVE check)</span></h2>
+    <div class="note" style="margin:0 0 8px">Enter the same in vitro CL<sub>int</sub> per species to build a cross-species table,
+    plus observed in vivo blood CL where you have it. Ratio &gt;3× is flagged as under-prediction.</div>
+    <table>
+      <thead><tr><th>Species</th><th class="num">CL<sub>int</sub> in vitro</th><th class="num">f<sub>u,inc</sub></th><th class="num">f<sub>u,p</sub></th><th class="num">R<sub>b</sub></th><th class="num">Obs. CL<sub>blood</sub></th></tr></thead>
+      <tbody id="sp-body"></tbody>
+    </table>
+    <div class="sub">Observed CL in mL/min/kg (blood). If you only have plasma CL, divide by R<sub>b</sub> first or enter R<sub>b</sub> and use the plasma column note below.</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn2" onclick="copyPrimaryToSpecies()">Copy panel-1 values into all species</button>
+      <button class="btn2" onclick="run()">Recalculate</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Cross-check the CRO's numbers <span class="hint">(optional)</span></h2>
+    <div class="row">
+      <div>
+        <label>CRO scale-up CL<sub>int</sub> <span class="hint">mL/min/kg</span></label>
+        <input id="cro-clint" type="number" step="any" placeholder="from report">
+      </div>
+      <div>
+        <label>CRO predicted CL<sub>H</sub> <span class="hint">mL/min/kg</span></label>
+        <input id="cro-clh" type="number" step="any" placeholder="from report">
+      </div>
+    </div>
+    <div class="sub">Pharmaron microsomal stability reports include <code>Scale-up CLint</code>, <code>Predicted Hepatic CLH</code>
+    and <code>ER</code>, all calculated <b>without</b> f<sub>u</sub> corrections. Paste them here and the tool will tell you
+    whether your uncorrected numbers reproduce theirs — a fast way to catch a scaling-factor or unit mismatch.</div>
+  </div>
+</div>
+
+<!-- ══════════════ RIGHT: OUTPUT ══════════════ -->
+<div>
+  <div class="card">
+    <div class="tabs">
+      <button class="on" data-t="res" onclick="tab('res')">Results</button>
+      <button data-t="sp" onclick="tab('sp')">Species comparison</button>
+      <button data-t="sf" onclick="tab('sf')">Scaling factors</button>
+      <button data-t="ai" onclick="tab('ai')">Interpretation</button>
+      <button data-t="ref" onclick="tab('ref')">Equations &amp; refs</button>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="t-res">
+      <div id="res-empty" class="note">Enter CL<sub>int</sub> on the left and press <b>Calculate</b>.</div>
+      <div id="res-out" class="hide">
+        <div class="kpis" id="kpis"></div>
+
+        <h2 style="margin-top:20px">Liver model comparison <span class="hint" id="hdr-species"></span></h2>
+        <table>
+          <thead><tr><th>Model</th><th class="num">CL<sub>H,blood</sub><br><span class="hint">mL/min/kg</span></th>
+            <th class="num">CL<sub>H,plasma</sub><br><span class="hint">mL/min/kg</span></th>
+            <th class="num">E<sub>H</sub></th><th class="num">Predicted F<br><span class="hint">%</span></th><th>Class</th></tr></thead>
+          <tbody id="model-body"></tbody>
+        </table>
+
+        <h2 style="margin-top:20px">Effect of f<sub>u</sub> correction <span class="hint">well-stirred model</span></h2>
+        <table>
+          <thead><tr><th>Correction applied</th><th class="num">CL<sub>int,u</sub> scaled<br><span class="hint">mL/min/kg</span></th>
+            <th class="num">CL<sub>H,blood</sub></th><th class="num">E<sub>H</sub></th><th class="num">Pred. F %</th></tr></thead>
+          <tbody id="fu-body"></tbody>
+        </table>
+        <div class="note">The uncorrected row is what the CRO reports. The fully-corrected row is the mechanistically
+        correct one, but for lipophilic/highly-bound series the uncorrected value often predicts in vivo CL better —
+        report both and say which you used.</div>
+
+        <div id="flags"></div>
+
+        <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn2" onclick="copyTsv()">Copy results as TSV</button>
+          <button class="btn2" onclick="dlCsv()">Download CSV</button>
+          <button class="btn2" onclick="copySummary()">Copy summary text</button>
+        </div>
+        <div class="status" id="copy-st"></div>
+      </div>
+    </div>
+
+    <!-- SPECIES -->
+    <div id="t-sp" class="hide">
+      <div id="sp-empty" class="note">Press <b>Calculate</b> to build the species table.</div>
+      <div id="sp-out" class="hide">
+        <table>
+          <thead><tr><th>Species</th><th class="num">CL<sub>int</sub><br><span class="hint">in vitro</span></th>
+            <th class="num">Scaled CL<sub>int,u</sub></th><th class="num">Pred. CL<sub>H,blood</sub></th>
+            <th class="num">E<sub>H</sub></th><th class="num">Pred. F %</th>
+            <th class="num">Obs. CL<sub>blood</sub></th><th class="num">Obs/Pred</th><th>IVIVE</th></tr></thead>
+          <tbody id="spres-body"></tbody>
+        </table>
+        <div class="note">Obs/Pred = observed in vivo blood CL ÷ predicted CL<sub>H</sub> (well-stirred, corrections as entered).
+        A ratio &gt;3 means the in vitro system under-predicts — consider extrahepatic/non-CYP clearance, transporter-mediated
+        uptake, or an incubation artefact (low recovery, non-specific binding, poor solubility in the incubation).</div>
+        <div id="sp-flags"></div>
+      </div>
+    </div>
+
+    <!-- SCALING FACTORS -->
+    <div id="t-sf">
+      <div class="hide" id="sf-inner">
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div id="t-ai" class="hide">
+      <h2>Interpretation text</h2>
+      <div id="tpl-out" class="note">Press <b>Calculate</b> first — a rule-based interpretation is generated automatically
+      and needs no API key.</div>
+      <details style="margin-top:14px">
+        <summary>Claude API — richer prose interpretation <span class="tag" id="ai-tag">off</span></summary>
+        <div class="dbody">
+          <label>Anthropic API key <span class="hint">stored only in this browser (localStorage)</span></label>
+          <input id="ai-key" type="password" placeholder="sk-ant-...">
+          <div class="row" style="margin-top:8px">
+            <div>
+              <label>Model</label>
+              <input id="ai-model" value="claude-sonnet-5">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <label style="font-weight:400;font-size:12px;display:flex;gap:7px;align-items:center;margin:0;padding-top:8px">
+                <input type="checkbox" id="ai-remember" checked style="width:auto"> Remember key
+              </label>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
+            <button class="btn2" onclick="saveKey()">Save</button>
+            <button class="btn2" onclick="clearKey()">Clear</button>
+            <button class="btn2" onclick="askClaude()">Generate interpretation</button>
+          </div>
+          <div class="status" id="ai-st"></div>
+          <div class="warnbox">The tool sends only the numeric IVIVE results (no structures, no SMILES) to
+          <code>api.anthropic.com</code>. The calculation itself never depends on the API — Claude only writes prose around
+          numbers this tool already computed. Always read the text before pasting it into a memo.</div>
+        </div>
+      </details>
+      <div id="ai-out" style="margin-top:14px"></div>
+    </div>
+
+    <!-- REFS -->
+    <div id="t-ref" class="hide">
+      <h2>Equations used</h2>
+      <div class="eq">
+<b>1 · in vitro CL<sub>int</sub> from t½</b><br>
+CL<sub>int</sub> [µL/min/mg or µL/min/10⁶ cells] = (0.693 / t½[min]) × 1000 / density
+      </div>
+      <div class="eq">
+<b>2 · Scale to whole liver</b><br>
+Microsomes: CL<sub>int,scaled</sub> [mL/min/kg] = CL<sub>int</sub> × MPPGL × LW / 1000<br>
+Hepatocytes: CL<sub>int,scaled</sub> [mL/min/kg] = CL<sub>int</sub> × HPGL × LW / 1000<br>
+&nbsp;&nbsp;MPPGL = mg microsomal protein / g liver; HPGL = 10⁶ cells / g liver; LW = g liver / kg body weight
+      </div>
+      <div class="eq">
+<b>3 · Binding corrections</b><br>
+CL<sub>int,u</sub> = CL<sub>int,scaled</sub> / f<sub>u,inc</sub>&nbsp;&nbsp;&nbsp;f<sub>u,blood</sub> = f<sub>u,plasma</sub> / R<sub>b</sub>
+      </div>
+      <div class="eq">
+<b>4 · Hepatic clearance</b> (R<sub>N</sub> = f<sub>u,b</sub> · CL<sub>int,u</sub> / Q<sub>H</sub>)<br>
+Well-stirred:&nbsp;&nbsp;&nbsp;CL<sub>H</sub> = Q<sub>H</sub> · R<sub>N</sub> / (1 + R<sub>N</sub>)<br>
+Parallel-tube:&nbsp;&nbsp;CL<sub>H</sub> = Q<sub>H</sub> · (1 − e<sup>−R<sub>N</sub></sup>)<br>
+Dispersion:&nbsp;&nbsp;&nbsp;&nbsp;E = 1 − 4a / [(1+a)²·e<sup>(a−1)/2D<sub>N</sub></sup> − (1−a)²·e<sup>−(a+1)/2D<sub>N</sub></sup>],
+a = √(1 + 4·R<sub>N</sub>·D<sub>N</sub>), D<sub>N</sub> = 0.17
+      </div>
+      <div class="eq">
+<b>5 · Extraction and oral F</b><br>
+E<sub>H</sub> = CL<sub>H</sub> / Q<sub>H</sub>&nbsp;&nbsp;&nbsp;F = F<sub>a</sub> · F<sub>g</sub> · (1 − E<sub>H</sub>)<br>
+CL<sub>H,plasma</sub> = CL<sub>H,blood</sub> × R<sub>b</sub>
+      </div>
+      <div class="eq">
+<b>6 · f<sub>u,inc</sub> estimators</b> (both at the stated protein concentration C, mg/mL)<br>
+Halifax–Houston: log(1/f<sub>u,1</sub> − 1) = 0.072·logP/D² + 0.067·logP/D − 1.126<br>
+Austin: log[(1−f<sub>u,1</sub>)/f<sub>u,1</sub>] = 0.56·logP/D − 1.41<br>
+Concentration correction: f<sub>u,C</sub> = 1 / (1 + C·(1 − f<sub>u,1</sub>)/f<sub>u,1</sub>)
+      </div>
+      <h2 style="margin-top:20px">Default scaling factors — sources</h2>
+      <table>
+        <thead><tr><th>Parameter</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Hepatic blood flow Q<sub>H</sub>, liver weight</td><td>Davies &amp; Morris, <i>Pharm Res</i> 1993;10:1093 — physiological parameters in laboratory animals and humans</td></tr>
+          <tr><td>MPPGL (microsomal protein per g liver)</td><td>Barter et al., <i>Curr Drug Metab</i> 2007;8:33 (human 40 mg/g); preclinical values from Houston &amp; Carlile / Smith et al.</td></tr>
+          <tr><td>HPGL (hepatocellularity)</td><td>Houston, <i>Biochem Pharmacol</i> 1994; human 99×10⁶ cells/g (some groups use 120–139)</td></tr>
+          <tr><td>Well-stirred / parallel-tube models</td><td>Pang &amp; Rowland, <i>J Pharmacokinet Biopharm</i> 1977;5:625</td></tr>
+          <tr><td>Dispersion model</td><td>Roberts &amp; Rowland, <i>J Pharm Sci</i> 1986;75:872 (D<sub>N</sub> = 0.17)</td></tr>
+          <tr><td>Microsomal binding QSAR</td><td>Austin et al., <i>Drug Metab Dispos</i> 2002;30:1497; Halifax &amp; Houston, <i>DMD</i> 2006;34:724</td></tr>
+          <tr><td>IVIVE under-prediction</td><td>Wood et al., <i>DMD</i> 2017;45:1178 — systematic under-prediction of human hepatic CL from HLM/hepatocytes</td></tr>
+        </tbody>
+      </table>
+      <div class="warnbox">This tool applies standard, published scaling. It does <b>not</b> apply an empirical scaling factor
+      (e.g. the ~4–5× under-prediction correction sometimes used for human hepatocytes). If your team decides to adopt one,
+      add it as a species row multiplier in the Scaling factors tab rather than adjusting numbers by hand.</div>
+    </div>
+
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   IVIVE Calculator — Genesis DMPK
+   All physiology is in SF (editable). Pure functions first, UI below.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const SPECIES = ['Human','Rat','Mouse','Dog','Monkey'];
+
+/* Default scaling factors. QH = hepatic BLOOD flow (mL/min/kg).
+   LW = liver weight (g/kg body weight). MPPGL = mg microsomal protein/g liver.
+   HPGL = 10^6 hepatocytes/g liver. Davies & Morris 1993 + Barter 2007 + Houston 1994. */
+const SF_DEFAULT = {
+  Human : {QH:20.7, LW:25.7, MPPGL:40, HPGL:99,  ESF:1},
+  Rat   : {QH:55.2, LW:40.0, MPPGL:45, HPGL:117, ESF:1},
+  Mouse : {QH:90.0, LW:55.0, MPPGL:45, HPGL:135, ESF:1},
+  Dog   : {QH:30.9, LW:32.0, MPPGL:55, HPGL:215, ESF:1},
+  Monkey: {QH:43.6, LW:30.0, MPPGL:45, HPGL:120, ESF:1},
+};
+const DN = 0.17;                 // dispersion number
+const IVIVE_FLAG_FOLD = 3;       // obs/pred ratio that triggers an under-prediction flag
+
+let SF = JSON.parse(JSON.stringify(SF_DEFAULT));
+try{ const s = localStorage.getItem('ivive_sf'); if(s) SF = Object.assign(SF, JSON.parse(s)); }catch(e){}
+
+let SYS = 'mic', MODE = 'clint', LAST = null;
+
+/* ── pure calculation ─────────────────────────────────────────────────── */
+
+function clintFromT12(t12, density){
+  if(!(t12>0) || !(density>0)) return null;
+  return (0.693/t12) * 1000/density;      // µL/min/mg  (or /10^6 cells)
+}
+
+function scaleClint(clint, species, sys){
+  const f = SF[species]; if(!f || !(clint>=0)) return null;
+  const per_g = (sys==='hep') ? f.HPGL : f.MPPGL;   // mg/g or 10^6 cells/g
+  return clint * per_g * f.LW / 1000 * (f.ESF||1);  // mL/min/kg
+}
+
+function wellStirred(QH, fub, clintU){
+  const RN = fub*clintU/QH;
+  return {CL: QH*RN/(1+RN), E: RN/(1+RN), RN};
+}
+function parallelTube(QH, fub, clintU){
+  const RN = fub*clintU/QH, E = 1 - Math.exp(-RN);
+  return {CL: QH*E, E, RN};
+}
+function dispersion(QH, fub, clintU){
+  const RN = fub*clintU/QH;
+  const a = Math.sqrt(1 + 4*RN*DN);
+  const num = 4*a;
+  const den = Math.pow(1+a,2)*Math.exp((a-1)/(2*DN)) - Math.pow(1-a,2)*Math.exp(-(a+1)/(2*DN));
+  let E = 1 - num/den;
+  if(!isFinite(E)) E = 1;                       // very high RN -> complete extraction
+  E = Math.min(Math.max(E,0),1);
+  return {CL: QH*E, E, RN};
+}
+
+/* Full prediction for one species. fuinc/fup/rb as fractions; corr controls which
+   binding terms are applied: 'both' | 'none' | 'plasma' | 'inc' */
+function predict(o){
+  const f = SF[o.species]; if(!f) return null;
+  const scaled = scaleClint(o.clint, o.species, o.sys);
+  if(scaled==null) return null;
+  const fuinc = (o.corr==='both'||o.corr==='inc') ? (o.fuinc>0?o.fuinc:1) : 1;
+  const fup   = (o.corr==='both'||o.corr==='plasma') ? (o.fup>0?o.fup:1) : 1;
+  const rb    = o.rb>0 ? o.rb : 1;
+  const fub   = fup/rb;
+  const clintU = scaled/fuinc;
+  const ws = wellStirred(f.QH, fub, clintU);
+  const pt = parallelTube(f.QH, fub, clintU);
+  const dp = dispersion(f.QH, fub, clintU);
+  const fafg = (o.fafg>0?Math.min(o.fafg,1):1);
+  const F = m => Math.max(0, fafg*(1-m.E))*100;
+  return {
+    species:o.species, QH:f.QH, scaled, clintU, fub, rb, fuinc, fup, fafg,
+    ws, pt, dp,
+    F:{ws:F(ws), pt:F(pt), dp:F(dp)},
+    plasma:{ws:ws.CL*rb, pt:pt.CL*rb, dp:dp.CL*rb},
+  };
+}
+
+function erClass(E){
+  if(E==null||!isFinite(E)) return {t:'—', c:'p-na'};
+  if(E<0.3)  return {t:'Low E'+'ₕ', c:'p-low'};
+  if(E<=0.7) return {t:'Intermediate', c:'p-mod'};
+  return {t:'High E'+'ₕ', c:'p-high'};
+}
+
+/* fu,inc estimators */
+function fuIncEstimate(logp, method, conc){
+  if(!isFinite(logp) || !(conc>0)) return null;
+  let fu1;
+  if(method==='austin'){
+    // log[(1-fu)/fu] = 0.56*logP - 1.41  at 1 mg/mL
+    const r = Math.pow(10, 0.56*logp - 1.41);   // (1-fu)/fu
+    fu1 = 1/(1+r);
+  } else {
+    // Halifax-Houston: log(1/fu - 1) = 0.072*logP^2 + 0.067*logP - 1.126  at 1 mg/mL
+    const r = Math.pow(10, 0.072*logp*logp + 0.067*logp - 1.126);
+    fu1 = 1/(1+r);
+  }
+  const r1 = (1-fu1)/fu1;
+  return 1/(1 + conc*r1);
+}
+
+/* ── helpers ──────────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const numOf = id => { const v = parseFloat(($(id)||{}).value); return isFinite(v)?v:null; };
+function fmt(v,d){ if(v==null||!isFinite(v)) return '—';
+  d = (d==null) ? (Math.abs(v)>=100?0: Math.abs(v)>=10?1: Math.abs(v)>=1?2:3) : d;
+  return v.toFixed(d); }
+function st(id,msg,kind){ const e=$(id); if(!e)return; e.textContent=msg;
+  e.className='status show '+(kind||'info'); if(!msg) e.className='status'; }
+
+/* ── segmented controls ───────────────────────────────────────────────── */
+$('seg-sys').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  [...$('seg-sys').children].forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  SYS=b.dataset.v;
+  $('clint-u').textContent = SYS==='hep' ? '(µL/min/10⁶ cells)' : '(µL/min/mg protein)';
+  $('dens-lbl').innerHTML  = SYS==='hep' ? 'Cell density <span class="hint">(10⁶ cells/mL)</span>'
+                                         : 'Protein conc. <span class="hint">(mg/mL)</span>';
+  $('dens').value = SYS==='hep' ? '0.5' : '0.5';
+  buildSpeciesRows();
+});
+$('seg-mode').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  [...$('seg-mode').children].forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  MODE=b.dataset.v;
+  $('blk-clint').classList.toggle('hide', MODE!=='clint');
+  $('blk-t12').classList.toggle('hide', MODE!=='t12');
+});
+
+function primaryClint(){
+  if(MODE==='t12') return clintFromT12(numOf('t12'), numOf('dens'));
+  return numOf('clint');
+}
+
+/* ── species input rows ───────────────────────────────────────────────── */
+function buildSpeciesRows(){
+  const tb=$('sp-body'); const keep={};
+  [...tb.querySelectorAll('tr')].forEach(tr=>{
+    const s=tr.dataset.sp;
+    keep[s]=[...tr.querySelectorAll('input')].map(i=>i.value);
+  });
+  tb.innerHTML='';
+  SPECIES.forEach(s=>{
+    const v = keep[s] || ['','1','1','1',''];
+    const tr=document.createElement('tr'); tr.dataset.sp=s;
+    tr.innerHTML=`<td style="font-weight:600">${s}</td>`+
+      ['sp-clint','sp-fuinc','sp-fup','sp-rb','sp-obs'].map((k,i)=>
+        `<td class="num"><input type="number" step="any" class="${k}" value="${v[i]||''}" style="padding:5px 6px;font-size:12px;text-align:right"></td>`).join('');
+    tb.appendChild(tr);
+  });
+}
+function copyPrimaryToSpecies(){
+  const c=primaryClint(), fi=numOf('fuinc'), fp=numOf('fup'), rb=numOf('rb');
+  [...$('sp-body').querySelectorAll('tr')].forEach(tr=>{
+    if(c!=null) tr.querySelector('.sp-clint').value=fmt(c,2);
+    tr.querySelector('.sp-fuinc').value = fi!=null?fi:1;
+    tr.querySelector('.sp-fup').value   = fp!=null?fp:1;
+    tr.querySelector('.sp-rb').value    = rb!=null?rb:1;
+  });
+  st('main-st','Panel-1 values copied to all five species. Edit any that differ, then Calculate.','info');
+}
+
+/* ── scaling factor editor ────────────────────────────────────────────── */
+function buildSfTab(){
+  const p=[['QH','Qₕ hepatic blood flow (mL/min/kg)'],['LW','Liver weight (g/kg bw)'],
+           ['MPPGL','MPPGL (mg protein/g liver)'],['HPGL','HPGL (10⁶ cells/g liver)'],
+           ['ESF','Empirical scaling factor (×)']];
+  let h='<h2>Physiological scaling factors</h2>';
+  h+='<div class="sfrow"><div class="lbl"></div>'+SPECIES.map(s=>`<div class="sfhdr">${s}</div>`).join('')+'</div>';
+  p.forEach(([k,lbl])=>{
+    h+=`<div class="sfrow"><div class="lbl" title="${lbl}">${k}</div>`+
+       SPECIES.map(s=>`<input data-k="${k}" data-s="${s}" type="number" step="any" value="${SF[s][k]}">`).join('')+'</div>';
+  });
+  h+=`<div class="note">Q<sub>H</sub> and liver weight from Davies &amp; Morris 1993. MPPGL 40 mg/g human (Barter 2007);
+      HPGL 99×10⁶ cells/g human (Houston 1994) — some groups use 120–139, which changes predicted CL proportionally.
+      <b>ESF</b> is a free multiplier on scaled CL<sub>int</sub>: leave at 1 unless your team has agreed an empirical
+      correction for systematic under-prediction, and state it in any memo if you do.</div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn2" onclick="saveSf()">Save as team defaults</button>
+        <button class="btn2" onclick="resetSf()">Reset to published values</button>
+      </div><div class="status" id="sf-st"></div>`;
+  const box=$('t-sf'); box.innerHTML=h;
+  box.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{
+    const v=parseFloat(inp.value); if(isFinite(v)) SF[inp.dataset.s][inp.dataset.k]=v; run(true);
+  }));
+}
+function saveSf(){ try{ localStorage.setItem('ivive_sf', JSON.stringify(SF));
+  st('sf-st','Saved in this browser. Share the file, not the browser — for a true team default, edit SF_DEFAULT in the source.','ok');
+}catch(e){ st('sf-st','Could not save: '+e.message,'err'); } }
+function resetSf(){ SF=JSON.parse(JSON.stringify(SF_DEFAULT)); try{localStorage.removeItem('ivive_sf');}catch(e){}
+  buildSfTab(); run(true); st('sf-st','Reset to published literature values.','ok'); }
+
+/* ── tabs ─────────────────────────────────────────────────────────────── */
+function tab(t){
+  ['res','sp','sf','ai','ref'].forEach(k=>{
+    const el=$('t-'+k); if(el) el.classList.toggle('hide', k!==t);
+  });
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===t));
+}
+
+/* ── main run ─────────────────────────────────────────────────────────── */
+function run(quiet){
+  const clint = primaryClint();
+  if(clint==null || !(clint>=0)){
+    if(!quiet) st('main-st','Enter an in vitro CL'+'ᵢ'+'nt value (or t½ + density) first.','warn');
+    return;
+  }
+  st('main-st','',null);
+  const base = {
+    clint, sys:SYS,
+    fuinc: numOf('fuinc')!=null?numOf('fuinc'):1,
+    fup:   numOf('fup')  !=null?numOf('fup')  :1,
+    rb:    numOf('rb')   !=null?numOf('rb')   :1,
+    fafg:  numOf('fafg') !=null?numOf('fafg') :1,
+  };
+  const human = predict(Object.assign({}, base, {species:'Human', corr:'both'}));
+  LAST = {base, human, cid:$('cid').value.trim()||'(unnamed)', prog:$('prog').value};
+
+  /* KPIs */
+  const kc = erClass(human.ws.E);
+  $('kpis').innerHTML = [
+    ['Scaled CL','ᵢnt,u','&nbsp;',fmt(human.clintU),'mL/min/kg'],
+    ['Predicted CL','ₕ (blood)','&nbsp;',fmt(human.ws.CL),'mL/min/kg · well-stirred'],
+    ['Predicted CL','ₕ (plasma)','&nbsp;',fmt(human.plasma.ws),'mL/min/kg'],
+    ['Extraction ratio E','ₕ','&nbsp;',fmt(human.ws.E,2),`of Qₕ ${fmt(human.QH,1)}`],
+    ['Predicted oral F','','&nbsp;',fmt(human.F.ws,0)+'%',`Fₐ·F_g = ${fmt(human.fafg,2)}`],
+  ].map(([a,b,,v,u])=>`<div class="kpi"><div class="k">${a}${b}</div><div class="v">${v}</div><div class="u">${u}</div></div>`).join('')
+   + `<div class="kpi"><div class="k">Clearance class</div><div class="v" style="font-size:15px;padding-top:5px"><span class="pill ${kc.c}">${kc.t}</span></div><div class="u">human, corrected</div></div>`;
+
+  $('hdr-species').textContent = '— human, f'+'ᵤ'+' corrections as entered';
+
+  /* model table */
+  $('model-body').innerHTML = [
+    ['Well-stirred (recommended default)','ws'],
+    ['Parallel-tube','pt'],
+    ['Dispersion (D'+'ₙ'+' = 0.17)','dp'],
+  ].map(([n,k])=>{
+    const m=human[k], c=erClass(m.E);
+    return `<tr><td>${n}</td><td class="num">${fmt(m.CL)}</td><td class="num">${fmt(human.plasma[k])}</td>
+      <td class="num">${fmt(m.E,2)}</td><td class="num">${fmt(human.F[k],0)}</td>
+      <td><span class="pill ${c.c}">${c.t}</span></td></tr>`;
+  }).join('');
+
+  /* fu correction table */
+  const corrRows = [
+    ['None — as the CRO reports it','none'],
+    ['f'+'ᵤ'+',inc only','inc'],
+    ['f'+'ᵤ'+',plasma / R_b only','plasma'],
+    ['Both (mechanistically correct)','both'],
+  ];
+  $('fu-body').innerHTML = corrRows.map(([n,c])=>{
+    const p = predict(Object.assign({},base,{species:'Human',corr:c}));
+    return `<tr><td>${n}${c==='both'?' <span class="pill p-low">default</span>':''}</td>
+      <td class="num">${fmt(p.clintU)}</td><td class="num">${fmt(p.ws.CL)}</td>
+      <td class="num">${fmt(p.ws.E,2)}</td><td class="num">${fmt(p.F.ws,0)}</td></tr>`;
+  }).join('');
+
+  buildFlags(human, base);
+  buildSpeciesResults(base);
+  buildTemplateText();
+
+  $('res-empty').classList.add('hide'); $('res-out').classList.remove('hide');
+}
+
+/* ── flags ────────────────────────────────────────────────────────────── */
+function buildFlags(h, base){
+  const f=[];
+  const E=h.ws.E;
+  if(E>0.7) f.push(['bad',`High predicted hepatic extraction (Eₕ = ${fmt(E,2)}). Oral F is capped at ${fmt(h.F.ws,0)}% by first-pass alone; expect high inter-individual variability and possible CYP-mediated DDI victim risk.`]);
+  else if(E<0.3) f.push(['ok',`Low predicted hepatic extraction (Eₕ = ${fmt(E,2)}). Hepatic first pass is unlikely to limit oral exposure; F will be driven by Fₐ·F_g (absorption/gut metabolism).`]);
+  else f.push(['','Intermediate extraction — predicted CL sits in the region most sensitive to the choice of liver model and to f'+'ᵤ'+' assumptions. Report the model you used.']);
+
+  if(h.fub*h.clintU/h.QH > 5)
+    f.push(['bad',`fᵤ,b·CLᵢnt,u is ${fmt(h.fub*h.clintU/h.QH,1)}× Qₕ — the prediction is blood-flow-limited, so CLₕ is insensitive to the in vitro value. Treat the number as "≈ Qₕ" rather than a precise estimate.`]);
+
+  if(base.fuinc===1 && base.fup===1)
+    f.push(['','No binding corrections applied (f'+'ᵤ'+',inc = f'+'ᵤ'+',p = 1). This matches the CRO-reported value but is only valid for a compound with negligible non-specific binding. Add measured f'+'ᵤ'+' values when they arrive.']);
+  if(base.fup>0 && base.fup<0.005)
+    f.push(['','f'+'ᵤ'+',plasma < 0.5% — at this level small assay errors propagate to large CL changes. Confirm the PPB result was within recovery limits, and consider reporting a range rather than a point estimate.']);
+  if(base.rb===1)
+    f.push(['','R'+'ᵇ'+' assumed = 1. If blood partitioning has been measured, enter it: CL'+'ₕ'+',plasma scales directly with R'+'ᵇ'+'.']);
+
+  /* CRO cross-check */
+  const croCl=numOf('cro-clint'), croClh=numOf('cro-clh');
+  if(croCl!=null || croClh!=null){
+    const unc = predict(Object.assign({},{clint:base.clint,sys:SYS,fafg:base.fafg,rb:1},{species:'Human',corr:'none'}));
+    if(croCl!=null){
+      const d = Math.abs(unc.clintU-croCl)/croCl;
+      f.push([d<=0.1?'ok':'bad',`CRO scale-up CLᵢnt ${fmt(croCl)} vs this tool uncorrected ${fmt(unc.clintU)} mL/min/kg (${fmt(d*100,0)}% apart). ${d<=0.1?'Consistent — scaling factors match.':'Mismatch >10%: check MPPGL/HPGL, liver weight, units (µL vs mL) or which species the CRO scaled to.'}`]);
+    }
+    if(croClh!=null){
+      const d = Math.abs(unc.ws.CL-croClh)/croClh;
+      f.push([d<=0.1?'ok':'bad',`CRO predicted CLₕ ${fmt(croClh)} vs this tool uncorrected well-stirred ${fmt(unc.ws.CL)} mL/min/kg (${fmt(d*100,0)}% apart). ${d<=0.1?'Consistent.':'Mismatch >10%: the CRO may use a different Qₕ or a different liver model.'}`]);
+    }
+  }
+  $('flags').innerHTML = f.map(([k,t])=>`<div class="flag ${k}">${t}</div>`).join('');
+}
+
+/* ── species comparison ───────────────────────────────────────────────── */
+function buildSpeciesResults(base){
+  const rows=[]; const flags=[];
+  [...$('sp-body').querySelectorAll('tr')].forEach(tr=>{
+    const s=tr.dataset.sp;
+    const g=c=>{const v=parseFloat(tr.querySelector('.'+c).value); return isFinite(v)?v:null;};
+    const clint=g('sp-clint'); if(clint==null) return;
+    const p=predict({species:s, sys:SYS, clint, corr:'both',
+      fuinc:g('sp-fuinc')||1, fup:g('sp-fup')||1, rb:g('sp-rb')||1, fafg:base.fafg});
+    const obs=g('sp-obs');
+    const ratio = (obs!=null && p.ws.CL>0) ? obs/p.ws.CL : null;
+    let iv={t:'—',c:'p-na'};
+    if(ratio!=null){
+      if(ratio>IVIVE_FLAG_FOLD) iv={t:`${fmt(ratio,1)}× under`,c:'p-high'};
+      else if(ratio<1/IVIVE_FLAG_FOLD) iv={t:`${fmt(1/ratio,1)}× over`,c:'p-high'};
+      else if(ratio>2||ratio<0.5) iv={t:'within 3×',c:'p-mod'};
+      else iv={t:'within 2×',c:'p-low'};
+    }
+    rows.push(`<tr><td style="font-weight:600">${s}</td><td class="num">${fmt(clint)}</td>
+      <td class="num">${fmt(p.clintU)}</td><td class="num">${fmt(p.ws.CL)}</td>
+      <td class="num">${fmt(p.ws.E,2)}</td><td class="num">${fmt(p.F.ws,0)}</td>
+      <td class="num">${obs!=null?fmt(obs):'—'}</td><td class="num">${ratio!=null?fmt(ratio,2):'—'}</td>
+      <td><span class="pill ${iv.c}">${iv.t}</span></td></tr>`);
+    if(ratio!=null && ratio>IVIVE_FLAG_FOLD)
+      flags.push(['bad',`${s}: in vivo CL is ${fmt(ratio,1)}× higher than predicted. Likely causes — non-CYP or extrahepatic clearance (UGT, aldehyde oxidase, esterases, renal/biliary), active hepatic uptake, or an in vitro artefact. Do not use this in vitro system alone to project human CL for this series until the gap is explained.`]);
+    if(ratio!=null && ratio<1/IVIVE_FLAG_FOLD)
+      flags.push(['bad',`${s}: in vivo CL is ${fmt(1/ratio,1)}× lower than predicted (over-prediction). Check for saturation of metabolism at the doses used, an over-estimated fᵤ, or plasma vs blood CL confusion in the in vivo value.`]);
+  });
+  if(!rows.length){
+    $('sp-empty').classList.remove('hide'); $('sp-out').classList.add('hide');
+    $('sp-empty').innerHTML='No per-species CL<sub>int</sub> entered yet. Use <b>Copy panel-1 values into all species</b> on the left, then edit the ones that differ.';
+    LAST.species=[]; return;
+  }
+  $('spres-body').innerHTML=rows.join('');
+  $('sp-flags').innerHTML=flags.map(([k,t])=>`<div class="flag ${k}">${t}</div>`).join('');
+  $('sp-empty').classList.add('hide'); $('sp-out').classList.remove('hide');
+  LAST.speciesHtml=rows.join('');
+}
+
+/* ── fu estimator ─────────────────────────────────────────────────────── */
+function estFu(){
+  const lp=numOf('fu-logp'), m=$('fu-method').value, c=numOf('fu-conc');
+  const fu=fuIncEstimate(lp,m,c);
+  if(fu==null){ st('fu-st','Enter a logP/logD and a protein concentration.','warn'); return; }
+  $('fuinc').value=fu.toFixed(3);
+  st('fu-st',`Estimated fᵤ,inc = ${fu.toFixed(3)} at ${c} mg/mL (${m==='austin'?'Austin':'Halifax–Houston'}). Filled in above — mark it as PREDICTED in any report.`,'ok');
+}
+
+/* ── text output ──────────────────────────────────────────────────────── */
+function summaryText(){
+  if(!LAST) return '';
+  const h=LAST.human, b=LAST.base;
+  const sysName = SYS==='hep'?'hepatocyte':'liver microsomal';
+  const corr = (b.fuinc===1&&b.fup===1) ? 'no binding corrections applied'
+    : `corrected for fᵤ,inc = ${b.fuinc} and fᵤ,plasma = ${b.fup} (Rᵇ = ${b.rb})`;
+  const cls = erClass(h.ws.E).t.replace('Eₕ','extraction');
+  let s = `${LAST.cid} (${LAST.prog}) — IVIVE, human ${sysName}.\n`;
+  s += `In vitro CLᵢnt ${fmt(b.clint)} ${SYS==='hep'?'µL/min/10⁶ cells':'µL/min/mg'}; scaled CLᵢnt,u ${fmt(h.clintU)} mL/min/kg (${corr}).\n`;
+  s += `Well-stirred model predicts hepatic blood CL of ${fmt(h.ws.CL)} mL/min/kg (plasma CL ${fmt(h.plasma.ws)} mL/min/kg), `;
+  s += `Eₕ = ${fmt(h.ws.E,2)} against Qₕ of ${fmt(h.QH,1)} mL/min/kg — ${cls.toLowerCase()}. `;
+  s += `Predicted maximum oral bioavailability from hepatic first pass alone is ${fmt(h.F.ws,0)}%`;
+  s += (h.fafg<1? ` using Fₐ·F_g = ${fmt(h.fafg,2)}.` : ' (assuming complete absorption and no gut metabolism).');
+  s += `\nParallel-tube and dispersion models give ${fmt(h.pt.CL)} and ${fmt(h.dp.CL)} mL/min/kg respectively; `;
+  s += (Math.abs(h.pt.CL-h.ws.CL)/Math.max(h.ws.CL,1e-9) > 0.25
+        ? 'the models diverge by >25%, which is expected at intermediate-to-high extraction — state which model was used.'
+        : 'model choice has little impact at this extraction ratio.');
+  return s;
+}
+function buildTemplateText(){
+  const t=summaryText();
+  $('tpl-out').innerHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.65">${t.replace(/</g,'&lt;')}</div>
+    <button class="btn2" style="margin-top:12px" onclick="copySummary()">Copy this text</button>`;
+}
+function copySummary(){ navigator.clipboard.writeText(summaryText())
+  .then(()=>st('copy-st','Summary copied to clipboard.','ok'))
+  .catch(e=>st('copy-st','Copy failed: '+e.message,'err')); }
+
+function resultsTsv(){
+  if(!LAST) return '';
+  const h=LAST.human;
+  const L=[['Compound',LAST.cid],['Program',LAST.prog],['System',SYS==='hep'?'Hepatocytes':'Liver microsomes'],
+    ['CLint in vitro',fmt(LAST.base.clint)],['fu,inc',LAST.base.fuinc],['fu,plasma',LAST.base.fup],['Rb',LAST.base.rb],
+    ['Fa*Fg',LAST.base.fafg],[''],
+    ['Model','CLh_blood (mL/min/kg)','CLh_plasma','EH','Pred F (%)']];
+  [['Well-stirred','ws'],['Parallel-tube','pt'],['Dispersion','dp']].forEach(([n,k])=>
+    L.push([n,fmt(h[k].CL),fmt(h.plasma[k]),fmt(h[k].E,3),fmt(h.F[k],0)]));
+  L.push([''],['Species','CLint','Scaled CLint,u','Pred CLh','EH','Pred F','Obs CL','Obs/Pred']);
+  [...$('sp-body').querySelectorAll('tr')].forEach(tr=>{
+    const s=tr.dataset.sp, g=c=>{const v=parseFloat(tr.querySelector('.'+c).value);return isFinite(v)?v:null;};
+    const clint=g('sp-clint'); if(clint==null)return;
+    const p=predict({species:s,sys:SYS,clint,corr:'both',fuinc:g('sp-fuinc')||1,fup:g('sp-fup')||1,rb:g('sp-rb')||1,fafg:LAST.base.fafg});
+    const obs=g('sp-obs');
+    L.push([s,fmt(clint),fmt(p.clintU),fmt(p.ws.CL),fmt(p.ws.E,3),fmt(p.F.ws,0),obs!=null?fmt(obs):'',obs!=null?fmt(obs/p.ws.CL,2):'']);
+  });
+  return L.map(r=>r.join('\t')).join('\n');
+}
+function copyTsv(){ navigator.clipboard.writeText(resultsTsv())
+  .then(()=>st('copy-st','Results copied as TSV — paste straight into Excel.','ok'))
+  .catch(e=>st('copy-st','Copy failed: '+e.message,'err')); }
+function dlCsv(){
+  const csv=resultsTsv().split('\n').map(r=>r.split('\t').map(c=>/[",]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`IVIVE_${(LAST&&LAST.cid||'compound').replace(/[^\w-]/g,'_')}.csv`;
+  a.click(); st('copy-st','CSV downloaded.','ok');
+}
+
+/* ── Claude API (optional) ────────────────────────────────────────────── */
+let AI = JSON.parse(localStorage.getItem('dmpk_ai')||'{"key":"","model":"claude-sonnet-5","remember":true}');
+function paintKey(){
+  $('ai-key').value=AI.key||''; $('ai-model').value=AI.model||'claude-sonnet-5';
+  $('ai-remember').checked=AI.remember!==false;
+  $('ai-tag').textContent=AI.key?'ready':'off'; $('ai-tag').className='tag'+(AI.key?' on':'');
+}
+function saveKey(){
+  AI.key=$('ai-key').value.trim(); AI.model=$('ai-model').value.trim()||'claude-sonnet-5';
+  AI.remember=$('ai-remember').checked;
+  try{ localStorage.setItem('dmpk_ai', JSON.stringify(AI.remember?AI:{key:'',model:AI.model,remember:false})); }catch(e){}
+  paintKey(); st('ai-st',AI.key?'Saved. Press "Generate interpretation".':'Enter a key first.',AI.key?'ok':'warn');
+}
+function clearKey(){ AI={key:'',model:AI.model,remember:true}; try{localStorage.removeItem('dmpk_ai');}catch(e){}
+  paintKey(); st('ai-st','Key cleared from this browser.','ok'); }
+
+async function askClaude(){
+  if(!LAST){ st('ai-st','Run a calculation first.','warn'); return; }
+  const key=($('ai-key').value||AI.key||'').trim();
+  if(!key){ st('ai-st','Enter an Anthropic API key.','warn'); return; }
+  st('ai-st','Asking Claude…','info');
+  const payload = {
+    compound:LAST.cid, program:LAST.prog,
+    system: SYS==='hep'?'human hepatocytes':'human liver microsomes',
+    clint_in_vitro:LAST.base.clint, fu_inc:LAST.base.fuinc, fu_plasma:LAST.base.fup,
+    Rb:LAST.base.rb, FaFg:LAST.base.fafg,
+    scaled_CLint_u_mL_min_kg:+fmt(LAST.human.clintU,3),
+    QH_mL_min_kg:LAST.human.QH,
+    well_stirred:{CLh_blood:+fmt(LAST.human.ws.CL,3),EH:+fmt(LAST.human.ws.E,3),predF_pct:+fmt(LAST.human.F.ws,1)},
+    parallel_tube:{CLh_blood:+fmt(LAST.human.pt.CL,3),EH:+fmt(LAST.human.pt.E,3)},
+    dispersion:{CLh_blood:+fmt(LAST.human.dp.CL,3),EH:+fmt(LAST.human.dp.E,3)},
+    species_table: resultsTsv().split('\n\n').pop(),
+  };
+  const sys = `You are a DMPK scientist at a drug discovery biotech.
+You have been given IVIVE results that have ALREADY been calculated by a validated tool. Do not recalculate and do not contradict the numbers.
+
+Your task: write a concise interpretation of the hepatic clearance prediction for a project team.
+
+Rules:
+- 3 to 5 sentences, plain scientific prose, no bullet points, no headings.
+- Always quote the specific numbers (CLint,u, CLh, EH, predicted F) that justify each statement.
+- Comment on whether the prediction is blood-flow-limited, and on the reliability implications of the fu corrections used (fu=1 means uncorrected).
+- If a species Obs/Pred ratio is outside 3-fold, name the most likely mechanistic explanations.
+- Do NOT make go/no-go or progression recommendations - that is the scientist's decision.
+- Do NOT speculate about chemical structure; you have not been shown one.
+- If a value is missing, say "not determined" rather than inferring it.`;
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,
+        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:($('ai-model').value||'claude-sonnet-5').trim(),max_tokens:700,
+        system:sys, messages:[{role:'user',content:'IVIVE RESULTS (JSON):\n'+JSON.stringify(payload,null,1)}]})
+    });
+    if(!res.ok){ const t=await res.text(); throw new Error('HTTP '+res.status+' — '+t.slice(0,300)); }
+    const d=await res.json();
+    const txt=(d.content||[]).map(c=>c.text||'').join('\n').trim();
+    $('ai-out').innerHTML=`<div class="card" style="margin:0;background:var(--panel2)">
+      <h2>Claude interpretation <span class="hint">review before use</span></h2>
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.65">${txt.replace(/</g,'&lt;')}</div>
+      <button class="btn2" style="margin-top:12px" onclick="navigator.clipboard.writeText(${JSON.stringify(txt)})">Copy</button></div>`;
+    st('ai-st','Done.','ok');
+  }catch(e){
+    st('ai-st','Failed: '+e.message+(/Failed to fetch/i.test(e.message)?' — a browser/CORS block or an invalid key. Check the key and that you are online.':''),'err');
+  }
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────── */
+buildSpeciesRows();
+buildSfTab();
+paintKey();
+tab('res');
+['clint','t12','dens','fuinc','fup','rb','fafg','cro-clint','cro-clh'].forEach(id=>{
+  const e=$(id); if(e) e.addEventListener('change',()=>{ if(LAST) run(true); });
+});
+</script>
+</body>
+</html>
